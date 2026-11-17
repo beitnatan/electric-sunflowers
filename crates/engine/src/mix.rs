@@ -14,8 +14,11 @@
 //!
 //! Then the bus compressor (`dsp::dynamics`, Giannoulis, Massberg, Reiss
 //! 2012): 2.2:1, attack 20 ms, release 300 ms, 10 dB soft knee, threshold
-//! 5 dB over the bus RMS, stereo-linked on max(|L|, |R|). Last, the sample
-//! peak is normalised to 0.89.
+//! 5 dB over the bus RMS, stereo-linked on max(|L|, |R|). Then the crest
+//! limiter (`dsp::dynamics::crest_limit`) holds the peak at `CREST_DB` over
+//! the active RMS of the mix (both channels pooled, `strip::active_rms`) and
+//! does nothing when no sample is over. Last, the sample peak is normalised
+//! to 0.89.
 //!
 //! With `MixSettings::default_for`, every fader multiplies by exactly 1.0
 //! (`db_to_gain(0.0)` is `1.0` exactly) and every pan equals the strip pan,
@@ -44,7 +47,7 @@
 //!
 //! Only the output is full length; the buses are one block.
 
-use dsp::dynamics::{Compressor, GainComputer, Link, PeakDetector};
+use dsp::dynamics::{crest_limit, Compressor, GainComputer, Link, PeakDetector};
 use dsp::pan::{balance, equal_power};
 use dsp::reverb::{Fdn16, T60_DC, T60_NYQ};
 use sfcore::math::{db_to_gain, gain_to_db};
@@ -54,6 +57,7 @@ use song::Band;
 use crate::mixset::MixSettings;
 use crate::render::Stems;
 use crate::stem::{SparseBuf, Stem, STEM_BLOCK};
+use crate::strip::{active_rms, RMS_BLOCK};
 use crate::track::TrackId;
 
 /// Frames per mixer block. Divides `STEM_BLOCK`, so a mixer block lies in
@@ -71,6 +75,8 @@ pub const BUS_ATTACK: f64 = 0.02;
 pub const BUS_RELEASE: f64 = 0.3;
 pub const BUS_KNEE_DB: f64 = 10.0;
 pub const BUS_OVER_RMS_DB: f64 = 5.0;
+/// Crest limiter ceiling over the active RMS of the mix, dB.
+pub const CREST_DB: f64 = 12.0;
 /// Accompaniment reduction while a lead sings, dB; `MixSettings`'s default.
 pub const DUCK_DB: f64 = 5.0;
 /// Key smoothing time constants, s.
@@ -442,8 +448,27 @@ pub(crate) fn premix_rms(
     (out, bus_rms)
 }
 
-/// Runs the bus compressor over `out` in place and returns the final peak
-/// normalisation gain, `PEAK / peak`.
+/// Active RMS of both channels pooled: `strip::active_rms` over
+/// `RMS_BLOCK` blocks of the mean of the two channel powers.
+pub fn pooled_active_rms(out: &Stereo) -> f64 {
+    let sums: Vec<f64> = out
+        .l
+        .chunks(RMS_BLOCK)
+        .zip(out.r.chunks(RMS_BLOCK))
+        .map(|(l, r)| {
+            let e: f64 = l
+                .iter()
+                .zip(r)
+                .map(|(&a, &b)| (a as f64).powi(2) + (b as f64).powi(2))
+                .sum();
+            e / 2.0
+        })
+        .collect();
+    active_rms(&sums, out.l.len())
+}
+
+/// Runs the bus compressor over `out` in place, then the crest limiter, and
+/// returns the final peak normalisation gain, `PEAK / peak`.
 fn compress_and_gain(bus_rms: f64, out: &mut Stereo) -> f64 {
     let mut comp = Compressor::new(
         PeakDetector::new(BUS_ATTACK, BUS_RELEASE, SR_F),
@@ -457,9 +482,12 @@ fn compress_and_gain(bus_rms: f64, out: &mut Stereo) -> f64 {
     let mut pk = 1e-9f64;
     for (l, r) in out.l.chunks_mut(MIX_BLOCK).zip(out.r.chunks_mut(MIX_BLOCK)) {
         comp.process_stereo(l, r);
-        for (&a, &b) in l.iter().zip(r.iter()) {
-            pk = pk.max((a as f64).abs()).max((b as f64).abs());
-        }
+    }
+    let ceiling = pooled_active_rms(out) * db_to_gain(CREST_DB);
+    // A mix with no sample over the ceiling is left as it is, bit for bit.
+    crest_limit(&mut out.l, &mut out.r, ceiling, SR_F);
+    for (&a, &b) in out.l.iter().zip(out.r.iter()) {
+        pk = pk.max((a as f64).abs()).max((b as f64).abs());
     }
     PEAK / pk
 }

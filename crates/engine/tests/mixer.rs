@@ -187,9 +187,12 @@ fn old_mix(stems: &Stems, band: &Band, seed: u64) -> Stereo {
     let mut pk = 1e-9f64;
     for (l, r) in out.l.chunks_mut(MIX_BLOCK).zip(out.r.chunks_mut(MIX_BLOCK)) {
         comp.process_stereo(l, r);
-        for (&a, &b) in l.iter().zip(r.iter()) {
-            pk = pk.max((a as f64).abs()).max((b as f64).abs());
-        }
+    }
+    // The crest limiter of the mix, as the mixer applies it.
+    let ceiling = engine::mix::pooled_active_rms(&out) * db_to_gain(engine::mix::CREST_DB);
+    dsp::dynamics::crest_limit(&mut out.l, &mut out.r, ceiling, SR_F);
+    for (&a, &b) in out.l.iter().zip(out.r.iter()) {
+        pk = pk.max((a as f64).abs()).max((b as f64).abs());
     }
     let g = PEAK / pk;
     for v in out.l.iter_mut().chain(out.r.iter_mut()) {
