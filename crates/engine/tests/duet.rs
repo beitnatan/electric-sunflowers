@@ -149,8 +149,7 @@ fn sheet_marks_singers_only_in_a_duet() {
 /// Re-pinned to `0xbec41bdd8aea5791` for frequency-dependent inter-channel coherence of the bodies.
 /// Re-pinned to `0xfc8656386db1f60d` for the drums as stochastic modal impulse responses from a real kit.
 /// Re-pinned to `0x9a764839943efc13` for the strong modes' power taken from the curve, the longer hits and the drums soft clip.
-/// Re-pinned to `0x386174d8901bc9fd` for the crest limiter of the mix.
-/// Re-pinned to `0xbafc1e3695c4367a` for the earlier brush tap and swish.
+/// Re-pinned to `0x7945af1b09c52421` for the fiddle's fast notes: a bow per eighth, no slide into a short note.
 #[test]
 fn solo_demo_mix_is_bit_identical() {
     let song = demo_song();
@@ -158,7 +157,7 @@ fn solo_demo_mix_is_bit_identical() {
     let m = mix(&stems, &song.band, 1234);
     let h = fnv1a(&mix_bytes(&m.l, &m.r));
     assert_eq!(
-        h, 0xbafc1e3695c4367a,
+        h, 0x7945af1b09c52421,
         "solo demo mix checksum changed: {h:#x}"
     );
 }
