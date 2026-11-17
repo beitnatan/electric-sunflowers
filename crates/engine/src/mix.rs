@@ -7,8 +7,8 @@
 //! strip gain times fader times level (mono: equal-power law; stereo:
 //! balance law; `dsp::pan`), and the same times the strip's send into the
 //! send bus; add each track's slapback to both buses at its fader gain,
-//! unpanned; run the send bus through the FDN reverb (`dsp::reverb::Fdn8`,
-//! Jot and Chaigne 1991; T60 2.2 s at DC, 0.8 s at Nyquist) at wet 0.55 into
+//! unpanned; run the send bus through the FDN reverb (`dsp::reverb::Fdn16`,
+//! Jot and Chaigne 1991; T60 1.6 s at DC, 0.8 s at Nyquist) at wet 1.01 into
 //! the main bus; write L/R; accumulate the bus power over every frame with
 //! |L| + |R| above -80 dB.
 //!
@@ -49,7 +49,7 @@
 
 use dsp::dynamics::{crest_limit, Compressor, GainComputer, Link, PeakDetector};
 use dsp::pan::{balance, equal_power};
-use dsp::reverb::{Fdn8, T60_DC, T60_NYQ};
+use dsp::reverb::{Fdn16, T60_DC, T60_NYQ};
 use sfcore::math::{db_to_gain, gain_to_db};
 use sfcore::SR_F;
 use song::Band;
@@ -64,7 +64,7 @@ use crate::track::TrackId;
 /// one stem block.
 pub const MIX_BLOCK: usize = 1024;
 /// Reverb return gain.
-pub const WET: f64 = 0.55;
+pub const WET: f64 = 1.01;
 /// Final sample peak.
 pub const PEAK: f64 = 0.89;
 /// Bus power counts frames with |L| + |R| above this (-80 dB).
@@ -405,7 +405,7 @@ pub(crate) fn premix_rms(
     let routes = routes(stems, band, settings);
     let duck = duck_gains(stems, band, settings);
     let slaps = slap_sources(stems, band, settings);
-    let mut fdn = Fdn8::new(SR_F, seed, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(SR_F, seed, T60_DC, T60_NYQ);
     let mut out = Stereo {
         l: vec![0.0; len],
         r: vec![0.0; len],
