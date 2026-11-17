@@ -1,7 +1,7 @@
-//! Fdn8: decay time against the absorption design, stability, decorrelation.
+//! Fdn16: decay time against the absorption design, stability, decorrelation.
 
 use dsp::biquad::{Biquad, BiquadCoeffs};
-use dsp::reverb::{absorption, Fdn8, T60_DC, T60_NYQ};
+use dsp::reverb::{absorption, Fdn16, T60_DC, T60_NYQ};
 use sfcore::random::{tag, Rng};
 use std::f64::consts::FRAC_1_SQRT_2;
 
@@ -9,7 +9,7 @@ const FS: f64 = 44_100.0;
 
 /// Design T60 at `f` Hz: mean over the lines of `-3 d / (fs log10 |H(e^jw)|)`
 /// for each line's absorption one-pole.
-fn design_t60(fdn: &Fdn8, f: f64) -> f64 {
+fn design_t60(fdn: &Fdn16, f: f64) -> f64 {
     let w = 2.0 * std::f64::consts::PI * f / FS;
     let d = fdn.delays();
     let mut acc = 0.0;
@@ -49,7 +49,7 @@ fn schroeder_t60(e: &[f64]) -> f64 {
 
 #[test]
 fn octave_250_500_t60_matches_design() {
-    let mut fdn = Fdn8::new(FS, 1234, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
     let n = (6.0 * FS) as usize;
     let mut l = vec![0.0f32; n];
     let mut r = vec![0.0f32; n];
@@ -87,7 +87,7 @@ fn octave_250_500_t60_matches_design() {
 
 #[test]
 fn sixty_seconds_of_noise_stays_bounded() {
-    let mut fdn = Fdn8::new(FS, 2718, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(FS, 2718, T60_DC, T60_NYQ);
     let mut rng = Rng::stream(7, tag("test.reverb.noise"));
     let block = 1024;
     let mut sl = vec![0.0f32; block];
@@ -120,7 +120,7 @@ fn sixty_seconds_of_noise_stays_bounded() {
 
 #[test]
 fn mono_input_gives_decorrelated_outputs() {
-    let mut fdn = Fdn8::new(FS, 1234, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
     let mut rng = Rng::stream(11, tag("test.reverb.mono"));
     let n = (10.0 * FS) as usize;
     let mut x = vec![0.0f32; n];
@@ -144,10 +144,94 @@ fn mono_input_gives_decorrelated_outputs() {
 #[test]
 fn seed_offsets_stay_in_range() {
     for seed in [0u64, 1, 1234, 2718, u64::MAX] {
-        let d = Fdn8::new(FS, seed, T60_DC, T60_NYQ).delays();
+        let d = Fdn16::new(FS, seed, T60_DC, T60_NYQ).delays();
         for (k, &dk) in d.iter().enumerate() {
             let base = dsp::reverb::BASE_DELAYS[k];
             assert!(dk >= base && dk <= base + 30, "seed {seed} line {k}: {dk}");
         }
+    }
+}
+
+#[test]
+fn delays_are_the_sixteen_line_design() {
+    assert_eq!(dsp::reverb::N_LINES, 16);
+    let sum: usize = dsp::reverb::BASE_DELAYS.iter().sum();
+    assert!(sum >= 43_000, "delay sum {sum}");
+    let prime = |n: usize| n > 1 && (2..).take_while(|i| i * i <= n).all(|i| n % i != 0);
+    for &d in &dsp::reverb::BASE_DELAYS {
+        assert!(prime(d), "{d} is not prime");
+    }
+}
+
+/// The modulated read stays inside its segment: at every sample count the
+/// read delay is within the modulation depth of the nominal delay, never
+/// below 1, and its farthest tap (`floor(d) + 1`) is below the segment
+/// length, so the mask never wraps onto newer samples. Unmodulated lines read
+/// exactly their delay.
+#[test]
+fn modulated_read_stays_inside_the_buffer() {
+    for seed in [0u64, 1, 1234, 2718, u64::MAX] {
+        let fdn = Fdn16::new(FS, seed, T60_DC, T60_NYQ);
+        let seg = fdn.segment() as f64;
+        let nominal = fdn.delays();
+        let mut ns: Vec<u64> = (0..200_000).collect();
+        ns.extend((0..40_000).map(|i| 200_000 + i * 1009));
+        for &n in &ns {
+            for k in 0..dsp::reverb::N_LINES {
+                let d = fdn.read_delay(k, n);
+                let nom = nominal[k] as f64;
+                assert!(d >= 1.0 && d.floor() + 1.0 < seg, "seed {seed} line {k} n {n}: {d}");
+                if k % 3 == 0 {
+                    assert!(
+                        (d - nom).abs() <= dsp::reverb::MOD_DEPTH + 1e-9,
+                        "seed {seed} line {k} n {n}: {d} vs {nom}"
+                    );
+                } else {
+                    assert_eq!(d, nom);
+                }
+            }
+        }
+    }
+}
+
+/// The impulse response's energy in successive 100 ms blocks falls
+/// monotonically from 0.3 s on.
+#[test]
+fn impulse_energy_decays_monotonically_in_100_ms_steps() {
+    let mut fdn = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
+    let n = (4.0 * FS) as usize;
+    let mut e = vec![0.0f64; n];
+    for i in 0..n {
+        let x = if i == 0 { 1.0 } else { 0.0 };
+        let [l, r] = fdn.process([x, x]);
+        e[i] = (l as f64).powi(2) + (r as f64).powi(2);
+    }
+    let step = (0.1 * FS) as usize;
+    let blocks: Vec<f64> = (3..n / step)
+        .map(|b| e[b * step..(b + 1) * step].iter().sum())
+        .collect();
+    for (i, w) in blocks.windows(2).enumerate() {
+        assert!(
+            w[1] < w[0],
+            "energy rose at {:.1} s: {:e} -> {:e}",
+            0.4 + 0.1 * i as f64,
+            w[0],
+            w[1]
+        );
+    }
+}
+
+#[test]
+fn silence_in_gives_silence_out_and_runs_are_identical() {
+    let mut a = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
+    let mut b = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
+    for _ in 0..50_000 {
+        assert_eq!(a.process([0.0, 0.0]), [0.0, 0.0]);
+    }
+    let mut rng = Rng::stream(5, tag("test.reverb.det"));
+    let mut x = vec![0.0f32; 20_000];
+    rng.fill_bipolar(&mut x);
+    for &v in &x {
+        assert_eq!(a.process([v, -v]), b.process([v, -v]));
     }
 }

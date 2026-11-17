@@ -11,7 +11,7 @@
 //! shipped (compressed, then peak-normalised) mix. `tests/mixer.rs` checks
 //! this sum for the demo song.
 
-use dsp::reverb::{Fdn8, T60_DC, T60_NYQ};
+use dsp::reverb::{Fdn16, T60_DC, T60_NYQ};
 use sfcore::SR_F;
 use song::Band;
 
@@ -79,7 +79,7 @@ pub fn print_reverb(
     let mut sr = vec![0.0f32; len];
     mix::add_send_bus(&mut sl, &mut sr, &routes, duck);
     mix::add_send_slap(&mut sl, &mut sr, &slaps);
-    let mut fdn = Fdn8::new(SR_F, seed, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(SR_F, seed, T60_DC, T60_NYQ);
     let mut out = Stereo {
         l: vec![0.0; len],
         r: vec![0.0; len],
