@@ -348,7 +348,27 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
 
 ### 5.12 Reverb and slapback
 
-- `Fdn8`: feedback delay network (Jot and Chaigne 1991). Eight lines, 1433-2903 samples plus a seed offset up to 30, in one contiguous power-of-two buffer. Householder feedback I - (2/N) 1 1^T. Per-line one-pole absorption from two T60s (2.2 s at DC, 0.8 s at Nyquist). Four series Schroeder allpasses (Schroeder 1962), lengths 142, 379, 107, 277, g 0.58-0.65. 16 ms predelay; 220 Hz high-pass (Biquad) on the input; side signal injected with alternating sign; fixed output taps. Wet 0.55. `process_block(send: [&[f32]; 2], out: [&mut [f32]; 2])`.
+- `Fdn16`: feedback delay network (Jot and Chaigne 1991). Sixteen lines, primes 887-4999 samples (sum 43460, 0.99 s) plus a seed offset `(seed (d mod 7)) mod 31`, in one contiguous power-of-two buffer. Householder feedback I - (2/N) 1 1^T. Per-line one-pole absorption from two T60s (1.6 s at DC, 0.8 s at Nyquist). Four series Schroeder allpasses (Schroeder 1962), lengths 142, 379, 107, 277, g 0.58-0.65. 16 ms predelay; 220 Hz high-pass (Biquad) on the input; input gain 0.5 sqrt(8/16) into every line; side signal 0.15 (L - R) with the sign alternating in pairs of lines. Outputs L = c (o0 - o2 + o4 - ... - o14), R = c (o1 - o3 + ... - o15), c = sqrt(4/8); no cross terms. Lines 0, 3, 6, 9, 12, 15 are read at d_k + 8 sin(2 pi f_j n / fs + 1.1 j), f_j = 0.31, 0.43, 0.59, 0.71, 0.83, 0.97 Hz, n the sample count since construction, linear interpolation; the other lines read integer delays. `process_block(send: [&[f32]; 2], out: [&mut [f32]; 2], wet)`; sequential, so identical at any thread count.
+- Finding. The eight-line `Fdn8` (1433-2903 samples, sum 17100, 0.39 s; T60 2.2 s at DC) had a mode every 2.6 Hz, each 1.0 Hz wide at the low-frequency T60: the modes stood apart and the tail rang at discrete frequencies (metallic), with no modulation to blur them. Its impulse response had an 11.3 dB modal spread about the 1/3-octave trend (a diffuse field gives about 5.6 dB).
+- Wet. `WET = 0.55 * 10^((E_old - E_new)/20)` rounded to 2 decimals, E the total energy of the both-channels impulse response at wet 1.0: 0.55 * 10^((4.82 + 0.45)/20) = 1.01.
+- Measurement: `cargo run --release -p dsp --example reverbir -- PREFIX` (impulse on both send channels, seed 1234, wet 1.0, 4 s), then `python3 -I tools/reverb_check.py PREFIX-both.wav`. Echo density after Abel and Huang 2006 (20 ms window); modal spread over 200 Hz-2 kHz of the left channel from 0.3 to 2.3 s.
+
+      measure                          old (Fdn8)   new (Fdn16)
+      T60 125 Hz (s)                   2.20         1.64
+      T60 250 Hz                       2.19         1.66
+      T60 500 Hz                       2.20         1.67
+      T60 1 kHz                        2.18         1.60
+      T60 2 kHz                        2.08         1.53
+      T60 4 kHz                        1.85         1.38
+      T60 8 kHz                        1.44         1.11
+      echo density reaches 0.9 (ms)    109.6        143.9
+      echo density 30/60/100/200 ms    0/.38/.82/.97  .06/.64/.85/1.01
+      modal sd about trend (dB)        11.25        7.69
+      peaks > 10 dB per 100 Hz         2.44         0.89
+      L/R tail correlation             -0.142       0.006
+      total energy (dB)                4.82         -0.45
+
+- Targets: modal peaks under half the old count, T60 at 500 Hz in 1.2-1.7 s and |correlation| < 0.3 are met. Missed: echo density reaches 0.9 later than before (the density is higher at 30-100 ms but stays just under 0.9 until 144 ms); the modal spread is 7.7 dB, not 5.0-6.2; T60 at 4 kHz is 1.38 s, not 0.8-1.3 (the absorption one-pole reaches 0.8 s only near Nyquist). Constants were not tuned against these.
 - Slapback (lead only): 340 ms feedback comb, feedback 0.22 through a 3.2 kHz low-pass (Biquad), level 0.07, added to main and send buses.
 
 ### 5.13 Mix
@@ -366,7 +386,7 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
   - drums 0.42, 0, 0.14; HP 30
   - harp 0.36, 0.34, 0.40; HP 75, PK 180/0.8/+1.5; body harp
   - violin 0.34, -0.40, 0.42; HP 190, HS 2800/+7, HS 7000/+5; body violin
-- Block mixer, 1024 frames: clear main and send; add each enabled stem in `TrackId` order with pan gain times strip gain times level; add slapback; run `Fdn8`; write L/R; accumulate bus power (every sample above -80 dB).
+- Block mixer, 1024 frames: clear main and send; add each enabled stem in `TrackId` order with pan gain times strip gain times level; add slapback; run `Fdn16`; write L/R; accumulate bus power (every sample above -80 dB).
 - Drums: soft clip `y = c tanh(x / c)` at c = 12 times the target level, after the level normalisation (`Strip::clip`, `track::DRUM_CLIP`), for the transients of the modal drums; no other strip has one and a strip without it is untouched.
 - Then the bus compressor pass, the crest limiter (5.11) and peak normalisation to 0.89 (sample peak). The 0.89 target stays. The limiter ceiling is `mix::CREST_DB` = 12 dB over the active RMS of the mix (both channels pooled, same 2048-sample, 5% rule as the strips). Before it, only 0.03 to 0.05% of the samples lay more than 12 dB over the active RMS, so a few peaks set the loudness: active RMS -16.1 dBFS (old drums demo), -18.2 (modal drums demo), -16.9 (center-pivot). After it every mix has crest 12 dB and active RMS near -13 dBFS (measured numbers: see the commit message).
 

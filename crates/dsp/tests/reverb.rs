@@ -225,8 +225,10 @@ fn impulse_energy_decays_monotonically_in_100_ms_steps() {
 fn silence_in_gives_silence_out_and_runs_are_identical() {
     let mut a = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
     let mut b = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
+    // Both run the same silence, so their modulation clocks agree.
     for _ in 0..50_000 {
         assert_eq!(a.process([0.0, 0.0]), [0.0, 0.0]);
+        assert_eq!(b.process([0.0, 0.0]), [0.0, 0.0]);
     }
     let mut rng = Rng::stream(5, tag("test.reverb.det"));
     let mut x = vec![0.0f32; 20_000];
