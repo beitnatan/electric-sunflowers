@@ -151,6 +151,7 @@ fn sheet_marks_singers_only_in_a_duet() {
 /// Re-pinned to `0x9a764839943efc13` for the strong modes' power taken from the curve, the longer hits and the drums soft clip.
 /// Re-pinned to `0x41201bbc9d46498f` for the consonant rules of fast notes (rate weight).
 /// Re-pinned to `0x826696ba52ba1693` for the violin body row fitted to solo violin recordings and the string bass envelope and low-pass fitted to Iowa pizzicato.
+/// Re-pinned to `0x31059fb9ff79c2c3` for the merge of the reverb, the tenor fit, the violin row and the bass.
 #[test]
 fn solo_demo_mix_is_bit_identical() {
     let song = demo_song();
@@ -158,7 +159,7 @@ fn solo_demo_mix_is_bit_identical() {
     let m = mix(&stems, &song.band, 1234);
     let h = fnv1a(&mix_bytes(&m.l, &m.r));
     assert_eq!(
-        h, 0x826696ba52ba1693,
+        h, 0x31059fb9ff79c2c3,
         "solo demo mix checksum changed: {h:#x}"
     );
 }
