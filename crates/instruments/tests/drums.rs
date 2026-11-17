@@ -1,6 +1,7 @@
 //! Drum voices: determinism, variation between hits, brightness against
 //! velocity, band curves against the reference tables, levels, and finite,
-//! bounded output for every kind.
+//! bounded output for every kind. The brush tap and the swish are the
+//! earlier recipes, not modal: they have no tables, no layers and no variants.
 
 use dsp::fft::{RealFft, C32};
 use instruments::drum_data::{self as data, VoiceData, BANDS};
@@ -111,7 +112,6 @@ fn consecutive_hits_are_never_alike() {
         DrumKind::Kick,
         DrumKind::Snare,
         DrumKind::Rim,
-        DrumKind::Tap,
         DrumKind::Hat,
         DrumKind::Tom { hz: 110.0 },
         DrumKind::Ride,
@@ -154,12 +154,6 @@ fn brightness_follows_velocity() {
     );
     println!("kick 2 kHz share: soft {k_soft:.2e} hard {k_hard:.2e}");
     assert!(k_hard > 2.0 * k_soft, "kick: {k_soft} -> {k_hard}");
-    let (t_soft, t_hard) = (
-        mean_share(DrumKind::Tap, 0.25),
-        mean_share(DrumKind::Tap, 0.95),
-    );
-    println!("tap 2 kHz share: soft {t_soft:.2e} hard {t_hard:.2e}");
-    assert!(t_hard < 0.5 * t_soft, "tap: {t_soft} -> {t_hard}");
 }
 
 /// RMS over bands (63 Hz to 12.5 kHz, table above -35 dB) of the mean dB
@@ -185,11 +179,10 @@ fn curve_error(kind: DrumKind, table: &[f64; 28]) -> (f64, f64) {
 
 #[test]
 fn band_curves_follow_their_tables() {
-    let voices: [(&str, DrumKind, &VoiceData); 6] = [
+    let voices: [(&str, DrumKind, &VoiceData); 5] = [
         ("kick", DrumKind::Kick, &data::KICK),
         ("snare", DrumKind::Snare, &data::SNARE),
         ("rim", DrumKind::Rim, &data::RIM),
-        ("tap", DrumKind::Tap, &data::TAP),
         ("hat", DrumKind::Hat, &data::HAT),
         ("ride", DrumKind::Ride, &data::RIDE),
     ];
@@ -206,9 +199,22 @@ fn band_curves_follow_their_tables() {
     );
     println!("tom: curve rms {rms:.2} dB, worst {worst:+.1} dB");
     assert!(rms < 6.0, "tom: curve rms {rms} dB");
-    let (rms, worst) = curve_error(DrumKind::Swish { dur: 0.5 }, &data::SWISH_CURVE);
-    println!("swish: curve rms {rms:.2} dB, worst {worst:+.1} dB");
-    assert!(rms < 6.0, "swish: curve rms {rms} dB");
+}
+
+#[test]
+fn tap_and_swish_are_deterministic_and_finite() {
+    for kind in [DrumKind::Tap, DrumKind::Swish { dur: 0.5 }, DrumKind::Swish { dur: 1.7 }] {
+        for vel in [0.2f32, 0.6, 1.0] {
+            let a = hits_of(kind, vel, 3, 21);
+            let b = hits_of(kind, vel, 3, 21);
+            assert_eq!(a, b, "{kind:?} differs between two renders of one seed");
+            let c = hits_of(kind, vel, 3, 22);
+            assert_ne!(a, c, "{kind:?} ignores the seed");
+            assert!(a[0] != a[1], "{kind:?} repeats a hit exactly");
+            assert!(a.iter().flatten().all(|v| v.is_finite()), "{kind:?} not finite");
+            assert!(a.iter().flatten().any(|&v| v != 0.0), "{kind:?} silent");
+        }
+    }
 }
 
 #[test]
