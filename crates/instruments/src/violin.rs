@@ -234,6 +234,17 @@ const REBOW_PROB: f64 = 0.4;
 /// finger slide, with probability `SLIDE_PROB`.
 const SLIDE_INTERVAL: f64 = 5.0;
 const SLIDE_PROB: f64 = 0.5;
+/// No slide into a note when it or the note before it is shorter than this
+/// (seconds): a 70 ms glide fills a third of an eighth note at 144 bpm and
+/// is heard as a wrong note. The slide draw is made all the same, so slow
+/// passages keep their takes.
+const SLIDE_MIN_DUR: f64 = 0.35;
+/// Inside a phrase, a note shorter than this (seconds) takes a new bow when
+/// at least `FAST_BOW_MIN` seconds have passed since the last bow change;
+/// otherwise it is slurred into the current bow. Eighths at 144 bpm (208 ms)
+/// take one bow each; a pair of sixteenths shares a bow.
+const FAST_NOTE: f64 = 0.30;
+const FAST_BOW_MIN: f64 = 0.16;
 /// Vibrato rate, Hz: `VIBRATO_RATE_MIN + VIBRATO_RATE_SPREAD * u`.
 const VIBRATO_RATE_MIN: f64 = 5.4;
 const VIBRATO_RATE_SPREAD: f64 = 1.0;
@@ -286,8 +297,11 @@ pub struct Phrase {
 /// s (each continuation re-bows with no vibrato delay), group strokes
 /// separated by less than `PHRASE_GAP` into phrases, then per stroke draw
 /// vibrato rate, depth and delay, decide re-bow (`LONG_NOTE_REBOW`,
-/// `REBOW_PROB`) and slide (`SLIDE_INTERVAL`, `SLIDE_PROB`), and alternate
-/// the bow direction at each re-bow from a random first direction.
+/// `REBOW_PROB`; a note under `FAST_NOTE` re-bows when `FAST_BOW_MIN` has
+/// passed since the last bow change and is slurred otherwise) and slide
+/// (`SLIDE_INTERVAL`, `SLIDE_PROB`; none when this note or the one before
+/// is under `SLIDE_MIN_DUR`), and alternate the bow direction at each
+/// re-bow from a random first direction.
 pub fn plan_strokes(notes: &[BowNote], rng: &mut Rng) -> Vec<Phrase> {
     let mut src: Vec<&BowNote> = notes
         .iter()
@@ -348,6 +362,8 @@ pub fn plan_strokes(notes: &[BowNote], rng: &mut Rng) -> Vec<Phrase> {
         .into_iter()
         .map(|g| {
             let mut strokes: Vec<Stroke> = Vec::with_capacity(g.len());
+            // Onset of the stroke that took the last new bow.
+            let mut last_bow = f64::NEG_INFINITY;
             for (k, (mut s, split)) in g.into_iter().enumerate() {
                 s.vib_rate = VIBRATO_RATE_MIN + VIBRATO_RATE_SPREAD * rng.uniform();
                 s.vib_depth *= VIBRATO_DEPTH_MIN + VIBRATO_DEPTH_SPREAD * rng.uniform();
@@ -356,11 +372,21 @@ pub fn plan_strokes(notes: &[BowNote], rng: &mut Rng) -> Vec<Phrase> {
                 } else {
                     VIBRATO_DELAY_MIN + VIBRATO_DELAY_SPREAD * rng.uniform()
                 };
-                s.rebow =
-                    k == 0 || split || s.t1 - s.t0 > LONG_NOTE_REBOW || rng.uniform() < REBOW_PROB;
+                let dur = s.t1 - s.t0;
+                // The draws are made as before whatever the rules below
+                // decide, so every later draw is unchanged.
+                s.rebow = k == 0 || split || dur > LONG_NOTE_REBOW || rng.uniform() < REBOW_PROB;
+                if k > 0 && !split && dur < FAST_NOTE {
+                    s.rebow = s.t0 - last_bow >= FAST_BOW_MIN;
+                }
+                if s.rebow {
+                    last_bow = s.t0;
+                }
                 s.slide = match strokes.last() {
                     Some(p) => {
-                        (s.midi - p.midi).abs() >= SLIDE_INTERVAL && rng.uniform() < SLIDE_PROB
+                        let drawn = (s.midi - p.midi).abs() >= SLIDE_INTERVAL
+                            && rng.uniform() < SLIDE_PROB;
+                        drawn && dur >= SLIDE_MIN_DUR && p.t1 - p.t0 >= SLIDE_MIN_DUR
                     }
                     None => false,
                 };

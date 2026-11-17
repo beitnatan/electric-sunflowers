@@ -34,6 +34,26 @@
 //!   the vowel.
 //! - Pauses: silence carrying the next nucleus's formants; before a phrase
 //!   after more than 400 ms, a 240 ms breath ending 40 ms before the onset.
+//!
+//! Fast notes. The rules above were set for slow singing; on a 204 ms note
+//! (144 bpm, one syllable per eighth) they left the vowel a median 148 ms
+//! and 10% of notes under 73 ms. A note's rate weight is w = clamp((0.32 -
+//! T) / 0.10, 0, 1), with T its inter-onset interval (its duration when it
+//! ends a phrase or the song): 0 from T = 0.32 s (the rules above, bit for
+//! bit), 1 from T = 0.22 s down. At weight w:
+//!
+//! - the consonant scale is the voice's times (1 - 0.35 w) (the stop burst
+//!   and the flap keep their fixed lengths);
+//! - the onset share is the phrasing's share less 0.17 w (0.45 - 0.17 w for
+//!   flowing delivery), the coda share 0.40 - 0.18 w;
+//! - the longest CV transition is (50 - 20 w) ms, after a velar (80 - 30 w)
+//!   ms; the longest VC transition (45 - 15 w) ms; their share limits stay;
+//! - a diphthong or sonorant-nucleus tail is at least (50 - 20 w) ms.
+//!
+//! The onset consonants sit in the previous note's interval, so their
+//! duration and share use the weight of that interval (the gap from the
+//! previous onset); the first note's onset uses its own weight. Coda,
+//! transitions and tail use the note's own weight.
 
 use std::ops::Range;
 
@@ -157,6 +177,44 @@ const BREATH_PAUSE: f64 = 0.4;
 const BREATH_FORMANTS: Formants3 = [620.0, 1200.0, 2400.0];
 /// Segments shorter than this are dropped, s.
 const MIN_SEGMENT: f64 = 1e-4;
+/// Inter-onset interval from which the slow-singing rules hold unchanged, s.
+pub const RATE_SLOW: f64 = 0.32;
+/// Interval below `RATE_SLOW` over which the rate weight rises from 0 to 1, s.
+pub const RATE_RAMP: f64 = 0.10;
+/// Share of the voice's consonant scale removed at rate weight 1.
+const FAST_CONS_CUT: f64 = 0.35;
+/// Onset share of the interval removed at rate weight 1.
+const FAST_ONSET_CUT: f64 = 0.17;
+/// Coda share of the note removed at rate weight 1.
+const FAST_CODA_CUT: f64 = 0.18;
+/// Longest CV transition removed at rate weight 1, s.
+const FAST_CV_CUT: f64 = 0.02;
+/// Longest velar CV transition removed at rate weight 1, s.
+const FAST_VELAR_CV_CUT: f64 = 0.03;
+/// Longest VC transition removed at rate weight 1, s.
+const FAST_VC_CUT: f64 = 0.015;
+/// Shortest diphthong or sonorant-nucleus tail at rate weight 0, s.
+const TAIL_MIN: f64 = 0.05;
+/// Longest diphthong or sonorant-nucleus tail, s.
+const TAIL_MAX: f64 = 0.18;
+/// Shortest tail removed at rate weight 1, s.
+const FAST_TAIL_CUT: f64 = 0.02;
+
+/// Rate weight of a note whose inter-onset interval is `t` s: 0 at and
+/// above `RATE_SLOW`, 1 at and below `RATE_SLOW - RATE_RAMP`, linear between.
+pub fn rate_weight(t: f64) -> f64 {
+    clamp((RATE_SLOW - t) / RATE_RAMP, 0.0, 1.0)
+}
+
+/// Inter-onset interval of note `k`: to the next onset, or the note's
+/// duration when it ends a phrase or the song.
+fn interval(notes: &[VocalNote], k: usize) -> f64 {
+    let n = &notes[k];
+    match notes.get(k + 1) {
+        Some(nn) if !nn.phrase_start => nn.t0 - n.t0,
+        _ => n.t1 - n.t0,
+    }
+}
 
 /// Kind of a nucleus target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -281,6 +339,11 @@ pub struct Syllable {
     pub vowel_start: f64,
     /// Nucleus formant targets (unscaled), never empty.
     pub targets: Vec<NucTarget>,
+    /// Rate weight of the note's own interval (coda, transitions, tail).
+    pub rate_w: f64,
+    /// Rate weight of the interval the onset sits in (onset durations and
+    /// share).
+    pub onset_rate_w: f64,
 }
 
 /// Split `ph` into onset consonants, nucleus (first vowel through last
@@ -301,15 +364,37 @@ pub fn split_ph(ph: &[Phoneme]) -> (Vec<Phoneme>, Vec<Phoneme>, Vec<Phoneme>) {
 
 /// Per-note syllables of `notes` for voice `p`: split, durations, flapping,
 /// onset compression against `ph.onset_share`, and the onset/vowel span
-/// placed by `ph.lead_in`.
+/// placed by `ph.lead_in`; the rate rules of the module doc.
 pub fn syllables(notes: &[VocalNote], p: &VoiceParams, ph: &PhrasingParams) -> Vec<Syllable> {
+    syllables_by(notes, p, ph, rate_weight)
+}
+
+/// `syllables` with rate weight `weight` of an interval in seconds.
+fn syllables_by(
+    notes: &[VocalNote],
+    p: &VoiceParams,
+    ph: &PhrasingParams,
+    weight: impl Fn(f64) -> f64,
+) -> Vec<Syllable> {
     let cs = p.cons_scale;
     let mut syl: Vec<Syllable> = notes
         .iter()
-        .map(|n| {
+        .enumerate()
+        .map(|(k, n)| {
             let (onset, nucleus, coda) = split_ph(&n.phones);
-            let onset_dur = onset.iter().map(|&ph| cons_dur(ph, false) * cs).collect();
-            let coda_dur = coda.iter().map(|&ph| cons_dur(ph, true) * cs).collect();
+            let rate_w = weight(interval(notes, k));
+            let onset_rate_w = if k > 0 {
+                weight(n.t0 - notes[k - 1].t0)
+            } else {
+                rate_w
+            };
+            let cs_on = cs * (1.0 - FAST_CONS_CUT * onset_rate_w);
+            let cs_co = cs * (1.0 - FAST_CONS_CUT * rate_w);
+            let onset_dur = onset
+                .iter()
+                .map(|&ph| cons_dur(ph, false) * cs_on)
+                .collect();
+            let coda_dur = coda.iter().map(|&ph| cons_dur(ph, true) * cs_co).collect();
             let targets = nuc_targets(&nucleus);
             Syllable {
                 onset,
@@ -321,6 +406,8 @@ pub fn syllables(notes: &[VocalNote], p: &VoiceParams, ph: &PhrasingParams) -> V
                 onset_start: n.t0,
                 vowel_start: n.t0,
                 targets,
+                rate_w,
+                onset_rate_w,
             }
         })
         .collect();
@@ -343,7 +430,7 @@ pub fn syllables(notes: &[VocalNote], p: &VoiceParams, ph: &PhrasingParams) -> V
         let n = &notes[k];
         let d: f64 = syl[k].onset_dur.iter().sum();
         let avail = if k > 0 {
-            (n.t0 - notes[k - 1].t0) * ph.onset_share
+            (n.t0 - notes[k - 1].t0) * (ph.onset_share - FAST_ONSET_CUT * syl[k].onset_rate_w)
         } else {
             FIRST_ONSET
         };
@@ -486,7 +573,8 @@ pub fn plan_syllables(
             }
         }
         let d2: f64 = s.coda_dur.iter().sum();
-        let lim = (coda_end - s.vowel_start) * CODA_SHARE;
+        let w = s.rate_w;
+        let lim = (coda_end - s.vowel_start) * (CODA_SHARE - FAST_CODA_CUT * w);
         let s2 = if d2 > lim && d2 > 0.0 { lim / d2 } else { 1.0 };
         let coda_start = coda_end - d2 * s2;
 
@@ -500,9 +588,9 @@ pub fn plan_syllables(
                 .and_then(|&ph| consonant(ph))
                 .is_some_and(|c| c.locus == Locus::Velar);
             let tt = if velar {
-                VELAR_CV_TRANSITION
+                VELAR_CV_TRANSITION - FAST_VELAR_CV_CUT * w
             } else {
-                CV_TRANSITION
+                CV_TRANSITION - FAST_CV_CUT * w
             }
             .min(vlen * 0.4);
             for j in 0..CV_STEPS {
@@ -527,7 +615,7 @@ pub fn plan_syllables(
         if vt.len() == 1 {
             plan.put(n_start, coda_start, vt[0].segment(sc.of(vt[0].f), amp));
         } else {
-            let tail = clamp(vlen * 0.3, 0.05, 0.18);
+            let tail = clamp(vlen * 0.3, TAIL_MIN - FAST_TAIL_CUT * w, TAIL_MAX);
             let each = tail / (vt.len() - 1) as f64;
             plan.put(
                 n_start,
@@ -554,7 +642,7 @@ pub fn plan_syllables(
         });
         if let (Some(c), Some(NucKind::Vowel)) = (vc, vt.last().map(|v| v.kind)) {
             let loc = sc.locus(c, vfl);
-            let tt = VC_TRANSITION.min(vlen * VC_SHARE);
+            let tt = (VC_TRANSITION - FAST_VC_CUT * w).min(vlen * VC_SHARE);
             let t_a = coda_start - tt;
             for j in 0..CV_STEPS {
                 let a = (j as f64 + 0.5) / CV_STEPS as f64;
@@ -934,21 +1022,123 @@ mod tests {
         );
     }
 
-    /// Onsets take at most 45% of the inter-onset interval.
+    /// Onsets take at most 45% of the inter-onset interval on slow notes,
+    /// 28% on fast ones (a 120 ms interval has rate weight 1).
     #[test]
     fn onset_compression() {
         let p = voice_params(Voice::Soprano);
-        let notes = [
-            note(0.5, 0.6, &["aa"], true),
-            note(0.62, 0.8, &["s", "t", "r", "aa"], true),
-        ];
-        let syl = syllables(&notes, &p, &PhrasingParams::default());
-        let used = notes[1].t0 - syl[1].onset_start;
-        assert!(syl[1].onset_scale < 1.0);
-        assert!(
-            (used - 0.12 * PhrasingParams::default().onset_share).abs() < 1e-12,
-            "{used}"
-        );
+        let share = PhrasingParams::default().onset_share;
+        for (gap, want) in [(0.12, share - FAST_ONSET_CUT), (0.40, share)] {
+            let notes = [
+                note(0.5, 0.6, &["aa"], true),
+                note(0.5 + gap, 0.6 + gap, &["s", "t", "r", "aa"], true),
+            ];
+            let syl = syllables(&notes, &p, &PhrasingParams::default());
+            let used = notes[1].t0 - syl[1].onset_start;
+            assert!(syl[1].onset_scale < 1.0);
+            assert!((used - gap * want).abs() < 1e-12, "{gap}: {used}");
+        }
+    }
+
+    /// Notes "t ae n" every `ioi` s, each lasting to the next onset.
+    fn tan_run(ioi: f64) -> Vec<VocalNote> {
+        (0..6)
+            .map(|k| {
+                let t0 = 1.0 + k as f64 * ioi;
+                note(t0, t0 + ioi, &["t", "ae", "n"], k % 2 == 0)
+            })
+            .collect()
+    }
+
+    /// The rate weight is 0 from 0.32 s, 1 up to 0.22 s, and continuous.
+    #[test]
+    fn rate_weight_is_continuous() {
+        assert_eq!(rate_weight(0.5), 0.0);
+        assert_eq!(rate_weight(RATE_SLOW), 0.0);
+        assert_eq!(rate_weight(0.1), 1.0);
+        assert!((rate_weight(RATE_SLOW - RATE_RAMP) - 1.0).abs() < 1e-12);
+        for t in [RATE_SLOW, RATE_SLOW - RATE_RAMP] {
+            for e in [1e-7, -1e-7] {
+                assert!(
+                    (rate_weight(t + e) - rate_weight(t)).abs() < 2e-6,
+                    "{t} {e}"
+                );
+            }
+        }
+        // The plan follows: just under 0.32 s it is the slow plan, closely.
+        let p = voice_params(Voice::Baritone);
+        let st = VoiceSettings::default();
+        let a = plan_segments(&tan_run(RATE_SLOW), &p, &st);
+        let b = plan_segments(&tan_run(RATE_SLOW - 1e-7), &p, &st);
+        assert_eq!(a.len(), b.len());
+        for (x, y) in a.iter().zip(&b) {
+            assert!((x.0.t0 - y.0.t0).abs() < 1e-5 && (x.0.t1 - y.0.t1).abs() < 1e-5);
+        }
+    }
+
+    /// At a 0.5 s interval the plan is the plan with every weight 0.
+    #[test]
+    fn slow_notes_plan_as_weight_zero() {
+        let st = VoiceSettings::default();
+        for voice in [Voice::Bass, Voice::Baritone, Voice::Soprano] {
+            let p = voice_params(voice);
+            let mut notes = tan_run(0.5);
+            notes[3].phones = ph(&["k", "ay", "t", "s"]);
+            notes[4].phones = ph(&["s", "t", "r", "ow", "l", "d"]);
+            let mut a = Vec::new();
+            let mut b = Vec::new();
+            let s1 = syllables(&notes, &p, &st.phrasing);
+            let s0 = syllables_by(&notes, &p, &st.phrasing, |_| 0.0);
+            plan_syllables(&notes, &s1, 0..notes.len(), &p, &st, &mut a);
+            plan_syllables(&notes, &s0, 0..notes.len(), &p, &st, &mut b);
+            assert_eq!(a, b, "{voice:?}");
+        }
+    }
+
+    /// At a 0.2 s interval a stop-onset, nasal-coda syllable keeps its
+    /// onset and coda within the fast shares and the vowel at least 55% of
+    /// the interval.
+    #[test]
+    fn fast_notes_keep_the_vowel() {
+        let st = VoiceSettings::default();
+        for voice in [
+            Voice::Bass,
+            Voice::Baritone,
+            Voice::Tenor,
+            Voice::Alto,
+            Voice::Soprano,
+        ] {
+            let p = voice_params(voice);
+            let notes = tan_run(0.2);
+            let syl = syllables(&notes, &p, &st.phrasing);
+            let plan = plan_segments(&notes, &p, &st);
+            for k in 1..notes.len() - 1 {
+                let (t0, t1) = (notes[k].t0, notes[k + 1].t0);
+                assert_eq!(syl[k].rate_w, 1.0);
+                let onset = notes[k].t0 - syl[k].onset_start;
+                let on_share = st.phrasing.onset_share - FAST_ONSET_CUT;
+                assert!(onset <= 0.2 * on_share + 1e-12, "{voice:?} onset {onset}");
+                let coda: f64 = plan
+                    .iter()
+                    .filter(|(sp, g)| {
+                        matches!(g, Segment::Nasal { .. }) && sp.t0 >= t0 && sp.t0 < t1
+                    })
+                    .map(|(sp, _)| sp.len())
+                    .sum();
+                let coda_room = syl[k + 1].onset_start - syl[k].vowel_start;
+                assert!(
+                    coda > 0.0 && coda <= coda_room * (CODA_SHARE - FAST_CODA_CUT) + 1e-12,
+                    "{voice:?} coda {coda}"
+                );
+                let cons: f64 = plan
+                    .iter()
+                    .filter(|(_, g)| !matches!(g, Segment::Vowel { .. }))
+                    .map(|(sp, _)| (sp.t1.min(t1) - sp.t0.max(t0)).max(0.0))
+                    .sum();
+                let vowel = (t1 - t0) - cons;
+                assert!(vowel >= 0.55 * 0.2, "{voice:?} note {k} vowel {vowel}");
+            }
+        }
     }
 
     /// `lead_in` moves the vowel start by `(1 - lead_in) * D`, where `D` is
