@@ -269,6 +269,20 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
 - Control rate 16 samples with per-sample ramps of speed, slope and delay lengths.
 - Output taps the incoming bridge wave (documented).
 - Measured today (JS): 213/216 single notes and 174/174 phrase notes hold Helmholtz motion; violin scores 0.47-0.74 as violin. The filtered-sawtooth predecessor scored 0.01. Rust, wave 5 (BRIDGE_POLE 0.35, reflection 0.985): 212/216 single notes, 119/120 phrase notes.
+- Fast notes (planner only; the string is unchanged). The owner heard the fast bowing of `songs/firelight-reel.json` (144 bpm, eighths of 208 ms) as iffy, the slow bowing as fine. Two causes. The planner slid (`SLIDE_TAU` 70 ms) into half of the leaps of 5 semitones or more whatever the note length, so 30 to 85 ms segments on other semitones sat between the notes: 46 pitch segments for 29 written notes in the first 7.2 s. And a run without a gap was one bow, since a bow changed only on long notes or by the 0.4 draw; a fiddler bows a reel a note or two to the bow. Rules: (1) no slide into a note when it or the note before is shorter than `SLIDE_MIN_DUR` 0.35 s; (2) inside a phrase a note shorter than `FAST_NOTE` 0.30 s takes a new bow (accent, direction reversed) when `FAST_BOW_MIN` 0.16 s has passed since the last bow change, and is slurred otherwise: eighths take a bow each, sixteenths go two to a bow. The random draws are made as before, so slow passages keep their takes.
+- Measured by `tools/fiddle_check.py` on the reel's violin stem, seed 1234, notes from `examples/violin_notes.rs`; 117 notes under 0.3 s (112 written):
+
+        fast notes (< 0.3 s)                 before         after
+        settled share (30 cents), median     0.838          0.842
+          quartiles                          0.789-0.842    0.816-0.865
+        time to settle, median / 90th        34 / 188 ms    32 / 41 ms
+        never settled                        16/117         0/117
+        sounding frames periodicity < 0.7    3.1%           3.8%
+        note level sd                        2.15 dB        2.07 dB
+        pitch segments / written notes       150/112        128/112
+        first 7.2 s: segments / written      46/29          33/29
+
+  The settled share cannot reach 1: a 30 ms frame straddles the note boundary for 15 ms at each end of a 208 ms note. The periodicity share rose because every eighth now has a bow change. Slow notes are unchanged (settled 0.976/0.975, 0.2%/0.3% under 0.7). Helmholtz 212/216 and 119/120, unchanged. The demo's violin changes (18 of its 90 violin notes are under 0.3 s), so its mix checksum is re-pinned.
 
 ### 5.8 Drums (`instruments::drums`, `instruments::drum_data`)
 

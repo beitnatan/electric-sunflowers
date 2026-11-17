@@ -134,6 +134,58 @@ fn planner_splits_groups_and_alternates() {
     assert!((0.13..0.15).contains(&ph[0].beta));
 }
 
+/// A legato run of `n` notes of `dur` seconds, leaping `leap` semitones up
+/// and down from MIDI 64.
+fn run_notes(n: usize, dur: f64, leap: f32) -> Vec<BowNote> {
+    (0..n)
+        .map(|i| {
+            let t0 = 0.1 + i as f64 * dur;
+            let m = if i % 2 == 0 { 64.0 } else { 64.0 + leap };
+            note(t0, t0 + dur, m, 0.6, false)
+        })
+        .collect()
+}
+
+/// Ten 0.2 s notes with 7-semitone leaps: no slide, one bow per note, the
+/// direction reversed at each.
+#[test]
+fn fast_run_takes_a_bow_per_note_and_no_slide() {
+    for seed in 0..20 {
+        let ph = plan_strokes(&run_notes(10, 0.2, 7.0), &mut Rng::from_seed(seed));
+        assert_eq!(ph.len(), 1);
+        let s = &ph[0].strokes;
+        assert_eq!(s.len(), 10);
+        assert!(s.iter().all(|s| s.rebow && !s.slide), "seed {seed}");
+        assert!(s.windows(2).all(|w| w[1].dir == -w[0].dir));
+    }
+}
+
+/// A run of 0.1 s notes: two notes to a bow.
+#[test]
+fn sixteenths_share_bows_in_pairs() {
+    for seed in 0..20 {
+        let ph = plan_strokes(&run_notes(12, 0.1, 2.0), &mut Rng::from_seed(seed));
+        let s = &ph[0].strokes;
+        for (i, st) in s.iter().enumerate() {
+            assert_eq!(st.rebow, i % 2 == 0, "seed {seed} note {i}");
+        }
+    }
+}
+
+/// 1 s notes after a 7-semitone leap still slide on some takes, not all.
+#[test]
+fn slow_leap_can_still_slide() {
+    let mut slides = 0;
+    let takes = 40;
+    for seed in 0..takes {
+        let ph = plan_strokes(&run_notes(2, 1.0, 7.0), &mut Rng::from_seed(seed));
+        if ph[0].strokes[1].slide {
+            slides += 1;
+        }
+    }
+    assert!(slides > 0 && slides < takes, "{slides}/{takes} slides");
+}
+
 /// 1/3-octave band powers (IEC 61260 base-10 centres 200 Hz - 8 kHz, edges
 /// at fc * 2^(+-1/6)) of `x` by a Hann-windowed Welch average, as dB
 /// relative to the total power of the frames.
