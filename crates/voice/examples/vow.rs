@@ -1,5 +1,6 @@
-//! Vowel distinctness probe: ten sustained vowels sung by the baritone
-//! (/hh/ + vowel, MIDI 52, no vibrato, no scoop), the 1/3-octave spectrum
+//! Vowel distinctness probe: ten sustained vowels sung by the baritone, or
+//! by the voice a `--voice-fit voice=V,...` names (bass 45, baritone 52,
+//! tenor 57, alto 62, soprano 67; /hh/ + vowel, no vibrato, no scoop), the 1/3-octave spectrum
 //! of each (Hann window, 8192 samples from 0.35 s into the note), levels
 //! relative to each vowel's loudest band, and the mean RMS distance between
 //! all pairs over the 12 bands from 200 Hz to 2.5 kHz. Prints
@@ -49,21 +50,30 @@ fn spec(a: &[f32]) -> Vec<f64> {
 
 fn main() {
     // `--voice-fit SPEC`: see `voice::parse_fit`.
+    let mut voice = Voice::Baritone;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         if a == "--voice-fit" {
             let spec = args.next().expect("--voice-fit needs a value");
             let (v, p) = voice::parse_fit(&spec).expect("bad --voice-fit");
+            voice = v;
             voice::set_fit_override(v, p);
         }
     }
+    let midi = match voice {
+        Voice::Bass => 45.0,
+        Voice::Baritone => 52.0,
+        Voice::Tenor => 57.0,
+        Voice::Alto => 62.0,
+        Voice::Soprano => 67.0,
+    };
     let mut sp = Vec::new();
     let mut t = 0.5f64;
     for v in VW {
         sp.push(VocalNote {
             t0: t,
             t1: t + 1.2,
-            midi: 52.0,
+            midi,
             phones: vec![Phoneme::Hh, v],
             amp: 1.0,
             stress: false,
@@ -84,7 +94,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     let mut x = vec![0.0f32; len];
-    render_phrases(&sp, Voice::Baritone, &settings, 3, len, |s0, v| {
+    render_phrases(&sp, voice, &settings, 3, len, |s0, v| {
         x[s0..s0 + v.len()].copy_from_slice(v)
     });
     let elapsed = start.elapsed();
