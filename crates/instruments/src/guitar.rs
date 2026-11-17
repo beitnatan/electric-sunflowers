@@ -269,14 +269,24 @@ fn pluck_notes(out: &mut [f32], notes: &[PluckNote], params: &PluckParams, seed:
 
 /// Bass sub layer settings.
 const SUB_LEVEL: f64 = 0.55;
-const SUB_ATTACK_S: f64 = 0.006;
+const SUB_ATTACK_S: f64 = 0.030;
 const SUB_DECAY_S: f64 = 0.7;
+/// Bass envelope scale: multiplies the sub layer's decay constant and the
+/// bass pluck's T60 (fitted, see design section 5.9).
+pub const BASS_ENV_K: f64 = 0.44;
 const SUB_RELEASE: usize = 2600;
 
 /// The bass: `PluckParams::BASS` notes (stream tag `BASS_NOTE`) plus the
 /// sine sub layer over the same length.
 pub fn render_bass(notes: &[PluckNote], seed: u64, len: usize) -> Vec<f32> {
-    let params = PluckParams::BASS;
+    render_bass_k(notes, seed, len, BASS_ENV_K)
+}
+
+/// `render_bass` with the envelope scale `k` given (for the fit of `k`:
+/// examples/bassnotes.rs).
+pub fn render_bass_k(notes: &[PluckNote], seed: u64, len: usize, k: f64) -> Vec<f32> {
+    let mut params = PluckParams::BASS;
+    params.t60 *= k;
     let mut out = vec![0.0f32; len];
     pluck_notes(&mut out, notes, &params, seed, BASS_NOTE);
     for n in notes {
@@ -292,7 +302,12 @@ pub fn render_bass(notes: &[PluckNote], seed: u64, len: usize) -> Vec<f32> {
             continue;
         }
         let n_len = n_len.min(len - start);
-        sub_into(&mut out[start..start + n_len], f0, SUB_LEVEL * n.vel as f64);
+        sub_into(
+            &mut out[start..start + n_len],
+            f0,
+            SUB_LEVEL * n.vel as f64,
+            SUB_DECAY_S * k,
+        );
     }
     for (k, n) in notes.iter().enumerate() {
         let Ok(start) = usize::try_from(sample_at(n.t0)) else {
@@ -347,12 +362,12 @@ fn thump_into(out: &mut [f32], f0: f64, vel: f64, rng: &mut Rng) {
 
 /// Adds the sub sine over all of `out`: `sin(w (i + 1))` times the attack
 /// ramp, the decay and the release ramp.
-fn sub_into(out: &mut [f32], f0: f64, level: f64) {
+fn sub_into(out: &mut [f32], f0: f64, level: f64, decay_s: f64) {
     let len = out.len();
     let w = TAU * f0 / SR_F;
     let c2 = 2.0 * w.cos();
     let (mut s0, mut s1) = (0.0f64, w.sin());
-    let decay = (-1.0 / (SUB_DECAY_S * SR_F)).exp();
+    let decay = (-1.0 / (decay_s * SR_F)).exp();
     let mut env = level;
     let atk = SUB_ATTACK_S * SR_F;
     let n_atk = (atk.ceil() as usize).min(len);
