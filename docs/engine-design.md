@@ -313,6 +313,8 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
 - `PeakDetector { attack, release }`: branching one-pole on |x|. `GainComputer { thr_db, ratio, knee_db }`: quadratic soft knee (Giannoulis, Massberg, Reiss 2012, JAES). `Compressor { det, gc, link: Mono | StereoMax }`, gain updated every 16 samples, linearly interpolated per sample.
 - Lead and harmony: 3:1, attack 8 ms, release 150 ms, knee 6 dB, threshold 1 dB above the 0.1 target level. Bus: 2.2:1, 20/300 ms, knee 10 dB, threshold bus RMS + 5 dB, stereo linked by max(|L|, |R|).
 
+- Crest limiter (`dsp::dynamics::crest_limit`), run once over the whole mix after the bus compressor: stereo linked, offline, look-ahead W = 5 ms (221 samples). Required gain r[n] = min(1, c / max(|L[n]|, |R[n]|)); m[n] = min of r over [n, n + W] (monotonic deque, O(n)); release s[n] = min(m[n], s[n-1] + (1 - s[n-1]) k), k = 1 - exp(-1 / (0.080 fs)), s[-1] = 1; attack g[n] = mean of s over [n - W, n] (indices before 0 count as 1). Each s[j] in that window is at most r[n], so g[n] <= r[n] and no sample passes c. Gain math in `f64`, sequential, so the result is the same at any thread count. With no sample over c it does nothing, bit for bit. c is 12 dB over the active RMS of the mix (see 5.13).
+
 ### 5.12 Reverb and slapback
 
 - `Fdn8`: feedback delay network (Jot and Chaigne 1991). Eight lines, 1433-2903 samples plus a seed offset up to 30, in one contiguous power-of-two buffer. Householder feedback I - (2/N) 1 1^T. Per-line one-pole absorption from two T60s (2.2 s at DC, 0.8 s at Nyquist). Four series Schroeder allpasses (Schroeder 1962), lengths 142, 379, 107, 277, g 0.58-0.65. 16 ms predelay; 220 Hz high-pass (Biquad) on the input; side signal injected with alternating sign; fixed output taps. Wet 0.55. `process_block(send: [&[f32]; 2], out: [&mut [f32]; 2])`.
@@ -335,7 +337,7 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
   - violin 0.34, -0.40, 0.42; HP 190, HS 2800/+7, HS 7000/+5; body violin
 - Block mixer, 1024 frames: clear main and send; add each enabled stem in `TrackId` order with pan gain times strip gain times level; add slapback; run `Fdn8`; write L/R; accumulate bus power (every sample above -80 dB).
 - Drums: soft clip `y = c tanh(x / c)` at c = 12 times the target level, after the level normalisation (`Strip::clip`, `track::DRUM_CLIP`), for the transients of the modal drums; no other strip has one and a strip without it is untouched.
-- Then the bus compressor pass and peak normalisation to 0.89 (sample peak). The 0.89 target stays.
+- Then the bus compressor pass, the crest limiter (5.11) and peak normalisation to 0.89 (sample peak). The 0.89 target stays. The limiter ceiling is `mix::CREST_DB` = 12 dB over the active RMS of the mix (both channels pooled, same 2048-sample, 5% rule as the strips). Before it, only 0.03 to 0.05% of the samples lay more than 12 dB over the active RMS, so a few peaks set the loudness: active RMS -16.1 dBFS (old drums demo), -18.2 (modal drums demo), -16.9 (center-pivot). After it every mix has crest 12 dB and active RMS near -13 dBFS (measured numbers: see the commit message).
 
 ## 6. What is deleted
 
