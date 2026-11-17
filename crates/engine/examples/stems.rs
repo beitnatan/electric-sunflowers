@@ -5,7 +5,7 @@
 //! (wall time per stage). `--song duet` additionally writes lead_b.wav and
 //! notes_b.json for singer B.
 //!
-//! Usage: cargo run --release -p engine --example stems -- --seed S --out DIR [--song demo|duet|SONG.json] [--style KEY] [--voice-fit SPEC]
+//! Usage: cargo run --release -p engine --example stems -- --seed S --out DIR [--song demo|duet|SONG.json] [--style KEY] [--voice V] [--voice-fit SPEC]
 //! `--voice-fit "fa_hz=1000,shelf_db=8,sf=0.3,tilt=3800,rd=1.7,hf_bed=0[,voice=bass]"`
 //! replaces those preset values of the voice (default baritone) for the fit
 //! of the voice model (tools/voice_target.py); not for production renders.
@@ -58,6 +58,7 @@ fn run() -> Result<(), String> {
     let mut duet = false;
     let mut file: Option<String> = None;
     let mut style: Option<String> = None;
+    let mut voice_arg: Option<song::Voice> = None;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -78,6 +79,10 @@ fn run() -> Result<(), String> {
                 };
             }
             "--style" => style = Some(args.next().ok_or("--style needs a value")?),
+            "--voice" => {
+                let v = args.next().ok_or("--voice needs a value")?;
+                voice_arg = Some(v.parse().map_err(|_| format!("bad voice {v}"))?);
+            }
             "--voice-fit" => {
                 let v = args.next().ok_or("--voice-fit needs a value")?;
                 let (voice, p) = voice::parse_fit(&v)?;
@@ -85,7 +90,7 @@ fn run() -> Result<(), String> {
             }
             _ => {
                 return Err(format!(
-                    "unknown argument {a}; usage: stems --seed S --out DIR [--song demo|duet|SONG.json] [--style KEY] [--voice-fit SPEC]"
+                    "unknown argument {a}; usage: stems --seed S --out DIR [--song demo|duet|SONG.json] [--style KEY] [--voice V] [--voice-fit SPEC]"
                 ))
             }
         }
@@ -123,7 +128,7 @@ fn run() -> Result<(), String> {
                 Box::leak(Box::new(s))
             }
         };
-        let (prepared, stems) = render(song, seed, None, &NoProgress);
+        let (prepared, stems) = render(song, seed, voice_arg, &NoProgress);
         (song, prepared, stems)
     };
     let render_s = t.elapsed().as_secs_f64();
