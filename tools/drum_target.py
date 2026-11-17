@@ -39,6 +39,12 @@ mean; level = energy within +-4 bins of the peak over the total (dB); tau
 from the decay of a narrow band around it (median over the samples).
 Swish (sustained): the band curve of the middle half of each sample only.
 
+The brush voices (Tap, Swish) are measured here but not modelled from the kit:
+the owner preferred the earlier brush recipes by ear, so the engine keeps them
+and `eng` leaves them out of the comparison. `ref` still writes their
+statistics to the JSON (they are measurements), and `drum_data.rs` has no
+table for them.
+
 Perspective: Hat, Ride, Tap, Swish, Rim use the mean of the overhead pair;
 Kick, Snare and Tom use the average of the energy fractions of the overhead
 pair and of the close microphone (each normalised to its own total), and
@@ -58,6 +64,8 @@ import numpy as np
 
 SOURCE = ("DRSKit 2.1, DrumGizmo team (drumgizmo.org), CC BY 4.0; "
           "overhead pair and close microphones; statistics only")
+NOTE = ("Tap and Swish are measurements only: the engine's brush voices are the "
+        "earlier recipes, not modelled from the kit (the owner preferred them by ear).")
 C = np.array([31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630,
                800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000,
                10000, 12500, 16000.])
@@ -76,8 +84,9 @@ VOICES = {
 }
 MODE_FMAX = {"Kick": 600, "Snare": 600, "Tom": 600, "Rim": 600, "Ride": 1000}
 GAP = {"ride": 3.0, "tom85": 3.0, "tom110": 3.0}
-ENG_FILES = {"Kick": "kick", "Snare": "snare", "Rim": "rim", "Tap": "tap",
-             "Swish": "swish", "Hat": "hat", "Ride": "ride"}
+# Tap and Swish are not modelled from the kit (see the header).
+ENG_FILES = {"Kick": "kick", "Snare": "snare", "Rim": "rim", "Hat": "hat",
+             "Ride": "ride"}
 VEL = ["0.25", "0.6", "0.95"]
 LAYERS = ["soft", "medium", "hard"]
 
@@ -320,7 +329,7 @@ def write_rust(res, path):
     w("    pub modes: &'static [StrongMode],")
     w("}")
     w("")
-    for voice in ("Kick", "Snare", "Rim", "Tap", "Hat", "Tom", "Ride"):
+    for voice in ("Kick", "Snare", "Rim", "Hat", "Tom", "Ride"):
         r = res[voice]
         w(f"pub const {voice.upper()}: VoiceData = VoiceData {{")
         w("    layers: [")
@@ -340,11 +349,6 @@ def write_rust(res, path):
         w("    ],")
         w("};")
         w("")
-    w("/// Swish band curve (the middle half of each stroke), dB relative to the total.")
-    w("pub const SWISH_CURVE: [f64; 28] = [")
-    w("    " + ", ".join(fmt(v, 2) for v in res["Swish"]["curve"]) + ",")
-    w("];")
-    w("")
     w("/// The reference tom's fundamental, Hz (the strong mode of the medium layer).")
     w(f"pub const TOM_F0: f64 = {fmt(res['Tom']['f0'], 2)};")
     open(path, "w").write("\n".join(L) + "\n")
@@ -355,7 +359,7 @@ def write_rust(res, path):
 
 
 def cmd_ref(a):
-    res = {"source": SOURCE, "bands": C.tolist(), "octaves": OCT.tolist()}
+    res = {"source": SOURCE, "note": NOTE, "bands": C.tolist(), "octaves": OCT.tolist()}
     for v in VOICES:
         print("analysing", v, flush=True)
         res[v] = analyse_voice(a.kit, v)
