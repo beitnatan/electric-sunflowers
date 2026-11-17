@@ -371,7 +371,17 @@ pub const STRIPS: [Strip; N_TRACKS] = [
         pan: 0.0,
         send: 0.04,
         band: Some(BandPart::Bass),
-        eq: &[lp(2000.0), pk(85.0, 1.0, 2.0)],
+        // Second-order low-pass, Q 0.6, corner fitted to the Iowa pizzicato
+        // spectrum (design 5.9; was LP 2000 Hz, Q 0.7).
+        eq: &[
+            EqBand {
+                kind: EqKind::Lowpass,
+                f: 450.0,
+                q: 0.6,
+                db: 0.0,
+            },
+            pk(85.0, 1.0, 2.0),
+        ],
         body: None,
         comp: None,
         slapback: None,

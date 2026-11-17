@@ -331,7 +331,8 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
 
 ### 5.9 Bass
 
-- Root-fifth line with approach notes (arrange). Rendered as a dark pluck (brightness 0.12, damping 0.5) plus a sine sub layer (6 ms attack, 0.7 s decay, 2600-sample release ramp). The sine is a recursive oscillator; the decay is a one-multiply recursion. Each onset adds a thump, the string bass's kick: a sine that falls from 1.5 f0 to f0 in 15 ms and decays with a 70 ms time constant (level 0.7 v), plus a finger click of white noise low-passed at 1.4 kHz with a 6 ms decay (level 0.35 v), 300 ms long at most; the click draws from `Rng::event(seed, bass.thump, k)`.
+- Root-fifth line with approach notes (arrange). Rendered as a dark pluck (brightness 0.12, damping 0.5) plus a sine sub layer (30 ms attack, 0.7 k s decay, 2600-sample release ramp), k = `guitar::BASS_ENV_K` = 0.44, which also scales the bass pluck's T60 (the bass preset only). The sine is a recursive oscillator; the decay is a one-multiply recursion. Each onset adds a thump, the string bass's kick: a sine that falls from 1.5 f0 to f0 in 15 ms and decays with a 70 ms time constant (level 0.7 v), plus a finger click of white noise low-passed at 1.4 kHz with a 6 ms decay (level 0.35 v), 300 ms long at most; the click draws from `Rng::event(seed, bass.thump, k)`.
+- Fit to real pizzicato (`tools/bass_target.py`, `tools/targets/bass_iowa.json`; University of Iowa MIS double bass pizzicato mf and ff, 92 notes for the spectrum, 42 mf notes for the envelope). Reference envelope (5 ms energy frames, 4-frame smoothing; onset at 2% of the file's maximum): peak 35 ms after the onset, 10 dB down at 0.16 s, 20 dB down at 0.50 s (medians). The engine's notes (`crates/instruments/examples/bassnotes.rs`: MIDI 34, 38, 41, 43, 46 at velocity 0.8 through `render_bass`, no strip) fell 20 dB in 1.11 s. k was bisected in [0.15, 1] until the median time to -20 dB was 0.50 s within 0.05 s: k = 0.44 gives peak 15 ms, -10 dB 0.20 s, -20 dB 0.505 s. The peak stays earlier than the reference's: it is set by the thump and the pluck, not by the sub layer's attack. Spectrum: the stem was within 4 dB of the reference (first 0.5 s of each note, unit RMS, relative to 40-400 Hz) from 63 to 200 Hz, but 5-10 dB high at 250-500 Hz, 10-14 dB high at 630-800 Hz and 16-23 dB high from 1 to 2.5 kHz. The strip's LP 2000 Hz (Q 0.7) became LP 450 Hz, Q 0.6 (5.13). Corner chosen from {350, 450, 550, 700, 900} Hz by the RMS of E - T over 200 Hz-3.15 kHz, E the mean of the bass stems of the demo and center-pivot at seed 1234 with the new envelope: 2000 Hz (old) 15.7 dB; 350, 4.6; 450, 4.1; 550, 5.3; 700, 7.3; 900, 9.5 (the stems with the old low-pass, the filter swapped in their power spectrum; the 450 Hz render measures the same 4.14 dB). E - T at 450 Hz: within 4 dB from 63 Hz to 2 kHz except +5.4 dB at 250 Hz and +7.0 at 315 Hz; -8 dB at 3.15 kHz and falling above (the reference's finger and string noise). Guards, seed 1234, demo / center-pivot: bass stem active RMS 0.150 to 0.144 / 0.150 to 0.145, peak 0.78 to 0.76 / 0.78 to 0.74; mix peak 0.89 in both; no NaN or infinity.
 
 ### 5.10 FFT and convolution (`dsp::fft`, `dsp::conv`)
 
@@ -363,7 +364,7 @@ Each model: algorithm, source, parameters that set the sound. Values are the cur
   - choir 0.36, 0, 0.50; HP 120, LP 6500
   - guitar 0.62, -0.20, 0.16; HP 70, PK 115/0.9/+3, HS 9500/-2; body guitar
   - harmony guitar 0.36, 0.45, 0.28; HP 120, HS 9000/-2; body guitar, seed offset 17
-  - bass 0.50, 0, 0.04; LP 2000, PK 85/1.0/+2
+  - bass 0.50, 0, 0.04; LP 450/0.6, PK 85/1.0/+2
   - drums 0.42, 0, 0.14; HP 30
   - harp 0.36, 0.34, 0.40; HP 75, PK 180/0.8/+1.5; body harp
   - violin 0.34, -0.40, 0.42; HP 190, HS 2800/+7, HS 7000/+5; body violin
