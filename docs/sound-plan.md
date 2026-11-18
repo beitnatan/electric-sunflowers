@@ -81,6 +81,17 @@ The baritone is 6.5 dB high at 800 Hz and its fundamental is rarely the stronges
 3. If /aa/ and /ow/ are high at 630-1000 Hz by more than 3 dB: widen B1 (today 60 + 80 breath Hz) by a factor fitted on those two vowels in {1.0, 1.3, 1.6, 2.0}; guard: vowel distance (the `vow` probe) at least 12.8 dB.
 4. If the fundamental's share is low on every vowel: raise harmonic 1 of the capped tables by a fitted gain in {0, 2, 4, 6} dB (multiply bin 1 of the table's spectrum when the mip levels are built; it is exact and costs nothing at run time). Guard: open-vowel H1-H2 stays within 1.5 dB of the matched-vowel target.
 
+Measured on 18 November 2026 (baritone, demo and Center Pivot pooled, against vocadito male; `VoiceParams::b1_scale` multiplies B1 = 60 + 80 breath Hz, 68 Hz for the baritone):
+
+    setting                                  H1 below strongest     H1 strongest   J      vowel distance
+                                             f0 100-150 / 150-200   share
+    singers                                  0.0 / 0.0              0.52
+    current (b1 1)                           -3.9 / -6.5            0.07           3.28   12.98
+    b1 2, fa 700, tilt 3800, bed .08, sh 10  0.0 / -2.7             0.26           4.3    12.32
+    b1 3, same                               0.0 / -0.2             0.47           3.9    11.98
+
+  With b1 1 one harmonic near F1 stands 8.8 dB over the next at f0 200-260 Hz (singers 3.4): a narrow F1 rings on a harmonic. B1 does not move the +6 dB at 800 Hz (likely the vowel set). The wider B1 lifts 1 to 3 kHz against the 315-1000 Hz norm, so the source is darkened with it (fa_hz 700, tilt 3800); the noise bed falls to 0.08 and `cons_gain` to 0.9-1.0 (consonant prominence 11.7 dB, singers 11.9; 2.74 compensated a bed that was too strong). Open H1-H2 stays 2.3-2.4 dB. Cost: the vow probe falls 0.7 to 1.0 dB, below the gate's 12.8 floor; that probe rewards narrow formants. Renders A (current), B (b1 2), C (b1 3) went to the owner; the choice is by ear.
+
 ### 5.2 Tract resonance near 4.5 kHz
 The baritone is 5.4 dB low at 4 kHz. The fixed sections put F5 at (3950 - 500 sf) Hz and the next resonance at 5.5 kHz; a uniform 17.5 cm tract has resonances at 3.5, 4.5, 5.5 kHz. Add a per-voice base for F5 (legacy 3950) and try {3950, 4200, 4500} with F4 fixed; measure the 3150, 4000 and 5000 Hz bands of the vowel envelope; accept the value that brings 4 kHz within 3 dB without moving 2.5 and 3.15 kHz by more than 2 dB. If none does, the deficit is the harmonic level above F4 and the remedy is the shelf corner (5.2 kHz; try 4.2 kHz), not the tract.
 

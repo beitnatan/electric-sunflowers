@@ -175,6 +175,8 @@ pub struct VoiceSynth {
     /// Aspiration gain (`VoiceParams::cons_gain`).
     cons_gain: f64,
     breath: f64,
+    /// Scale on B1 (`VoiceParams::b1_scale`).
+    b1_scale: f64,
     /// Per-frame noise buffers.
     asp: [f32; HOP],
     fric: [f32; HOP],
@@ -210,6 +212,7 @@ impl VoiceSynth {
             hf_bed: p.hf_bed,
             cons_gain: p.cons_gain,
             breath: p.breath,
+            b1_scale: p.b1_scale,
             asp: [0.0; HOP],
             fric: [0.0; HOP],
         }
@@ -234,7 +237,7 @@ impl VoiceSynth {
                 ctl.f3[m] as f64 * (1.0 + self.wobble[1].w),
             ],
             bw: [
-                (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN) * BW_SCALE,
+                (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN) * BW_SCALE * self.b1_scale,
                 (90.0 + nas * NAS_B2_HZ) * BW_SCALE,
                 (130.0 + nas * NAS_B3_HZ) * BW_SCALE,
             ],

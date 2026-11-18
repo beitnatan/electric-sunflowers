@@ -43,6 +43,8 @@ pub struct VoiceParams {
     /// Gain on the frication path (bursts included) and on aspiration; 1 is
     /// the legacy level. Breath noise and the HF bed are not scaled.
     pub cons_gain: f64,
+    /// Scale on the F1 bandwidth (1 = the rule in synth.rs).
+    pub b1_scale: f64,
 }
 
 /// The preset for `voice`.
@@ -69,6 +71,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.2,
             hf_hz: 3800.0,
             cons_gain: 2.74,
+            b1_scale: 1.0,
         },
         // Tenor: fitted to the same male-range singers as the baritone, by
         // the reduced procedure of engine-design 5.1 (capped source).
@@ -89,6 +92,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.3173,
             hf_hz: 3800.0,
             cons_gain: 3.3,
+            b1_scale: 1.0,
         },
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
@@ -107,6 +111,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
+            b1_scale: 1.0,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
@@ -125,6 +130,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
+            b1_scale: 1.0,
         },
         // Bass: the baritone's fitted `fa_hz`, `shelf_db`, `hf_bed`, `hf_hz`
         // and `cons_gain`; `rd` picked for the same open-vowel H1-H2; its own
@@ -146,6 +152,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.2,
             hf_hz: 3800.0,
             cons_gain: 2.74,
+            b1_scale: 1.0,
         },
     }
 }
@@ -203,6 +210,10 @@ pub fn parse_fit(spec: &str) -> Result<(Voice, VoiceParams), String> {
             "hf_bed" => p.hf_bed = num()?,
             "hf_hz" => p.hf_hz = num()?,
             "cons_gain" => p.cons_gain = num()?,
+            "b1_scale" => p.b1_scale = num()?,
+            "breath" => p.breath = num()?,
+            "jitter" => p.jitter = num()?,
+            "shimmer" => p.shimmer = num()?,
             _ => return Err(format!("unknown fit key {k}")),
         }
     }
