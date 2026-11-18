@@ -77,8 +77,9 @@ Nobody on the machine side can listen. Judge every sound change by the gate, the
 - The Python tools (PANNs tagger, Whisper word error; `tools/`, `requirements.txt`) are not installed on this machine.
 - Voice tools (numpy, scipy, soundfile, matplotlib): `tools/voicecmp.py` and `tools/voiceenv.py` measure the lead against real singers (vocadito, CC BY 4.0); `tools/voicescan.py DIR` scans a stems render for static, missing consonants, holes and clicks (the stems example writes `phones.json` and `plan.json`). Place cues matter as much as level: a velar needs a visible F2/F3 pinch and a longer glide, or it sounds alveolar.
 - Reference targets (statistics only, CC BY 4.0) are in `tools/targets/`: GuitarSet for the guitar, vocadito for the male voice. `tools/guitar_curve.py check` and `tools/voice_target.py eng DIR... --target JSON` compare stems with them (numpy only).
-- Cloud sessions have cargo and no Bazel, so `scripts/gate.sh` does not run there. The gate baseline predates the guitar, voice, pitch and stereo changes of November 2026 and must be captured again on the owner's machine.
-- Latest: demo at seed 1234, 12 cores: about 2.1 s threaded (650 MB), 6.5 s on one thread (490 MB). Vowel distance 12.99 dB (baritone, new source).
+- Cloud sessions: Bazel is not installed but may be downloaded (owner's permission): `curl -sSL -o ~/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64 && chmod +x ~/bin/bazel` (bazelisk reads `.bazelversion`, 9.2.0; the first build fetches the toolchain and crates and takes about 3 minutes on 4 cores). The gate's perf step needs GNU time (`apt-get install -y time`). The environment sets a `BUILDBUDDY_API_KEY` that the remote cache rejects, so run the gate as `env -u BUILDBUDDY_API_KEY GATE_SCRATCH=<scratch> scripts/gate.sh LABEL`. cargo also works there.
+- The gate baseline was captured on 18 November 2026 from commit 5822473a (every sound change of November 2026), in a cloud session on 4 cores.
+- Latest: demo at seed 1234, 4 cores (cloud): 3.87 s threaded (709 MB), 6.37 s on one thread (587 MB); on the owner's 12 cores it was about 2.1 s before the November changes. Vowel distance 12.98 dB (baritone, new source; below the 13.2-13.6 good range, accepted). Helmholtz 212/216. Lead pitch 0.993 within 50 cents.
 
 ## The JS prototype
 
