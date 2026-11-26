@@ -96,7 +96,8 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
         },
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
-            rd: 1.25,
+            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1)
+            rd: 1.6,
             fs: 1.16,
             f1s: 1.08,
             breath: 0.16,
@@ -111,11 +112,12 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
-            b1_scale: 1.0,
+            b1_scale: 2.0,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
-            rd: 1.05,
+            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1)
+            rd: 1.6,
             fs: 1.22,
             f1s: 1.12,
             breath: 0.09,
@@ -130,7 +132,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
-            b1_scale: 1.0,
+            b1_scale: 2.0,
         },
         // Bass: the baritone's fitted `fa_hz`, `shelf_db`, `hf_bed`, `hf_hz`
         // and `cons_gain`; `rd` picked for the same open-vowel H1-H2; its own

@@ -128,6 +128,7 @@ Onsets carry uniform jitter of +-4 ms, independent per hit. Real ensemble timing
 
 ### 5.8 Higher voices
 After the tenor, alto and soprano fits (design 5.1-5.2): intelligibility at high pitch. When f0 exceeds F1, singers raise F1 to f0 (the floor at 1.06 f0 exists) and widen the jaw, which also raises F2 for back vowels. Measure with VocalSet female long tones per vowel as in 5.1.
+At f0 250-450 Hz the cascade with a narrow B1 put H1 10-19 dB under H2 on a, e and o; real singers keep H1 within 1 dB of the strongest harmonic. The alto and soprano now use rd 1.6 and b1_scale 2.0 (see engine-design 5.1).
 
 ### 5.9 The gate
 `scripts/gate.sh` compares the engine with its own earlier output. Its baseline predates every change of November 2026 and must be captured again on the owner's machine (Bazel). Then add the reference comparisons as gate checks, so a regression against the real recordings fails the gate: `tools/body_curve.py check` (guitar, violin), `tools/voice_target.py eng --target` (J and open H1-H2 per voice), `tools/drum_target.py eng`, `tools/bass_target.py eng`, `tools/reverb_check.py`, `tools/fiddle_check.py`, `tools/artic_check.py`. All need numpy only.
