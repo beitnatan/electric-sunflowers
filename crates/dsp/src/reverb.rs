@@ -189,12 +189,11 @@ impl Fdn16 {
     #[inline(always)]
     pub fn read_delay(&self, k: usize, n: u64) -> f64 {
         let d = self.delay[k] as f64;
-        match k % 3 == 0 {
-            true => {
-                let j = k / 3;
-                d + MOD_DEPTH * (self.mod_w[j] * n as f64 + MOD_PHASE_STEP * j as f64).sin()
-            }
-            false => d,
+        if k.is_multiple_of(3) {
+            let j = k / 3;
+            d + MOD_DEPTH * (self.mod_w[j] * n as f64 + MOD_PHASE_STEP * j as f64).sin()
+        } else {
+            d
         }
     }
 

@@ -384,8 +384,8 @@ pub fn plan_strokes(notes: &[BowNote], rng: &mut Rng) -> Vec<Phrase> {
                 }
                 s.slide = match strokes.last() {
                     Some(p) => {
-                        let drawn = (s.midi - p.midi).abs() >= SLIDE_INTERVAL
-                            && rng.uniform() < SLIDE_PROB;
+                        let drawn =
+                            (s.midi - p.midi).abs() >= SLIDE_INTERVAL && rng.uniform() < SLIDE_PROB;
                         drawn && dur >= SLIDE_MIN_DUR && p.t1 - p.t0 >= SLIDE_MIN_DUR
                     }
                     None => false,

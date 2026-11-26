@@ -237,7 +237,9 @@ impl VoiceSynth {
                 ctl.f3[m] as f64 * (1.0 + self.wobble[1].w),
             ],
             bw: [
-                (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN) * BW_SCALE * self.b1_scale,
+                (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN)
+                    * BW_SCALE
+                    * self.b1_scale,
                 (90.0 + nas * NAS_B2_HZ) * BW_SCALE,
                 (130.0 + nas * NAS_B3_HZ) * BW_SCALE,
             ],

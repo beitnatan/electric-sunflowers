@@ -895,7 +895,10 @@ mod tests {
         let sd = (xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64).sqrt();
         let at_clamp = xs.iter().filter(|x| (x.abs() - limit).abs() < 1e-6).count();
         assert!((0.085..0.115).contains(&sd), "drift sd {sd} semitone");
-        assert!((at_clamp as f64) < 0.01 * n as f64, "{at_clamp} of {n} at the clamp");
+        assert!(
+            (at_clamp as f64) < 0.01 * n as f64,
+            "{at_clamp} of {n} at the clamp"
+        );
     }
 
     /// A marked scoop starts below the note and a marked fall ends below

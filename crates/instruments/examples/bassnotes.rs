@@ -62,6 +62,10 @@ fn main() {
             vel: 0.8,
         };
         let x = render_bass_k(&[note], seed, len, k);
-        wav(&std::path::Path::new(&dir).join(format!("bass_{m}.wav")), &x).expect("write");
+        wav(
+            &std::path::Path::new(&dir).join(format!("bass_{m}.wav")),
+            &x,
+        )
+        .expect("write");
     }
 }

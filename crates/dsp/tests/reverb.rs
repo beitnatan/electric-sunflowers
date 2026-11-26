@@ -180,7 +180,10 @@ fn modulated_read_stays_inside_the_buffer() {
             for k in 0..dsp::reverb::N_LINES {
                 let d = fdn.read_delay(k, n);
                 let nom = nominal[k] as f64;
-                assert!(d >= 1.0 && d.floor() + 1.0 < seg, "seed {seed} line {k} n {n}: {d}");
+                assert!(
+                    d >= 1.0 && d.floor() + 1.0 < seg,
+                    "seed {seed} line {k} n {n}: {d}"
+                );
                 if k % 3 == 0 {
                     assert!(
                         (d - nom).abs() <= dsp::reverb::MOD_DEPTH + 1e-9,
