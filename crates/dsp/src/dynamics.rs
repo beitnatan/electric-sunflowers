@@ -222,7 +222,7 @@ pub fn crest_limit(l: &mut [f32], r: &mut [f32], ceiling: f64, fs: f64) -> Optio
         std::collections::VecDeque::with_capacity(w + 2);
     let mut next = 0usize;
     let mut prev = 1.0f64;
-    for i in 0..n {
+    for (i, si) in s.iter_mut().enumerate() {
         while next < n && next <= i + w {
             let v = req(l, r, next);
             while dq.back().is_some_and(|&(_, b)| b >= v) {
@@ -236,7 +236,7 @@ pub fn crest_limit(l: &mut [f32], r: &mut [f32], ceiling: f64, fs: f64) -> Optio
         }
         let m = dq.front().map_or(1.0, |&(_, v)| v);
         prev = m.min(prev + (1.0 - prev) * k);
-        s[i] = prev;
+        *si = prev;
     }
     // Attack smoothing: running mean over the w + 1 samples ending at i. The
     // sum is rebuilt every RESUM samples so rounding cannot drift.
