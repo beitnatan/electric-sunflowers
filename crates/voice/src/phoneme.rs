@@ -53,6 +53,9 @@ pub struct Consonant {
     pub formants: [f64; 3],
     /// Voicing amplitude of a sonorant or nasal.
     pub av: f64,
+    /// Nasal antiresonance (the nasal zero, FNZ), Hz; zero for other
+    /// classes (Fujimura 1962: m about 1000, n 1600, ng 2500).
+    pub fnz: f64,
     /// Frication (or burst) noise band centre and bandwidth, Hz.
     pub ff: f64,
     pub bw: f64,
@@ -76,6 +79,7 @@ const BLANK: Consonant = Consonant {
     dur: 0.0,
     formants: [0.0; 3],
     av: 0.0,
+    fnz: 0.0,
     ff: 0.0,
     bw: 0.0,
     af: 0.0,
@@ -94,6 +98,15 @@ const fn son(class: ConsClass, formants: [f64; 3], av: f64, dur: f64) -> Consona
         dur,
         ..BLANK
     }
+}
+
+/// Nasal voicing amplitudes (m, n, ng).
+const NASAL_AV_M: f64 = 0.55;
+const NASAL_AV_N: f64 = 0.55;
+const NASAL_AV_NG: f64 = 0.5;
+
+const fn nasal(c: Consonant, fnz: f64) -> Consonant {
+    Consonant { fnz, ..c }
 }
 
 const fn at(c: Consonant, locus: Locus) -> Consonant {
@@ -177,13 +190,16 @@ pub const CONSONANTS: [Option<Consonant>; Phoneme::COUNT] = {
     let labiodental = Locus::At([250.0, 1100.0, 2350.0]);
     let dental = Locus::At([250.0, 1500.0, 2600.0]);
     let mut t = [None; Phoneme::COUNT];
-    t[P::L as usize] = Some(son(Sonorant, [360.0, 1050.0, 2700.0], 0.72, 0.055));
-    t[P::R as usize] = Some(son(Sonorant, [420.0, 1250.0, 1650.0], 0.78, 0.06));
-    t[P::W as usize] = Some(son(Sonorant, [300.0, 650.0, 2200.0], 0.65, 0.055));
-    t[P::Y as usize] = Some(son(Sonorant, [270.0, 2100.0, 3000.0], 0.65, 0.05));
-    t[P::M as usize] = Some(son(Nasal, [280.0, 1100.0, 2300.0], 0.55, 0.085));
-    t[P::N as usize] = Some(son(Nasal, [280.0, 1650.0, 2600.0], 0.55, 0.06));
-    t[P::Ng as usize] = Some(son(Nasal, [280.0, 2100.0, 2700.0], 0.5, 0.065));
+    // Sonorant voicing: l 0.45, r 0.60, w and y 0.50 (dips of about 7, 4.4, 6
+    // and 6 dB under the vowel; they were 0.72, 0.78, 0.65, 0.65, dips of 2
+    // to 4 dB).
+    t[P::L as usize] = Some(son(Sonorant, [360.0, 1050.0, 2700.0], 0.45, 0.055));
+    t[P::R as usize] = Some(son(Sonorant, [420.0, 1250.0, 1650.0], 0.60, 0.06));
+    t[P::W as usize] = Some(son(Sonorant, [300.0, 650.0, 2200.0], 0.50, 0.055));
+    t[P::Y as usize] = Some(son(Sonorant, [270.0, 2100.0, 3000.0], 0.50, 0.05));
+    t[P::M as usize] = Some(nasal(son(Nasal, [280.0, 1100.0, 2300.0], NASAL_AV_M, 0.085), 1000.0));
+    t[P::N as usize] = Some(nasal(son(Nasal, [280.0, 1650.0, 2600.0], NASAL_AV_N, 0.06), 1600.0));
+    t[P::Ng as usize] = Some(nasal(son(Nasal, [280.0, 2100.0, 2700.0], NASAL_AV_NG, 0.065), 2500.0));
     // Fricatives carry the locus of their place (`docs/engine-design.md`,
     // consonants): the formants sit near it under the noise and move to the
     // vowel after it, as after a stop.

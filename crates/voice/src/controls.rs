@@ -46,7 +46,7 @@ use crate::articulation::{plan_syllables, syllables, Segment, Span, Syllable};
 use crate::params::VoiceParams;
 use crate::phrasing::{phrase_notes, PhrasingParams};
 use crate::synth::VoiceSettings;
-use crate::tuning::{VIB_DEPTH_VAR, VIB_RATE_VAR, VIB_WOBBLE2};
+use crate::tuning::{NASAL_POLE_HZ, VIB_DEPTH_VAR, VIB_RATE_VAR, VIB_WOBBLE2};
 
 /// Control frames per second.
 pub const FRAME_RATE: f64 = SR_F / HOP as f64;
@@ -61,6 +61,7 @@ const SMOOTH_F1: f64 = 0.016;
 const SMOOTH_F2: f64 = 0.018;
 const SMOOTH_F3: f64 = 0.02;
 const SMOOTH_NASAL: f64 = 0.02;
+const SMOOTH_VOICE_BAR: f64 = 0.004;
 const SMOOTH_ASPIRATION: f64 = 0.006;
 const SMOOTH_FRICATION: f64 = 0.002;
 const SMOOTH_B1X: f64 = 0.006;
@@ -127,6 +128,12 @@ pub struct ControlTracks {
     pub midi: Vec<f32>,
     /// Extra F1 bandwidth during aspiration, Hz.
     pub b1x: Vec<f32>,
+    /// Voice bar 0-1: 1 inside a voiced stop's closure, where the voiced
+    /// signal is low-passed.
+    pub vb: Vec<f32>,
+    /// Nasal zero (antiresonance) centre, Hz: the nasal's own inside a
+    /// nasal, `NASAL_POLE_HZ` elsewhere, smoothed with `nas`.
+    pub fnz: Vec<f32>,
 }
 
 impl ControlTracks {
@@ -154,6 +161,8 @@ impl ControlTracks {
         set(&mut self.nas, 0.0);
         set(&mut self.midi, 0.0);
         set(&mut self.b1x, 0.0);
+        set(&mut self.vb, 0.0);
+        set(&mut self.fnz, NASAL_POLE_HZ as f32);
     }
 
     pub fn len(&self) -> usize {
@@ -220,11 +229,13 @@ pub fn rasterise(plan: &[(Span, Segment)], w: Window, out: &mut ControlTracks, b
         match *seg {
             Segment::Vowel { av, .. } | Segment::Sonorant { av, .. } => {
                 c.av[r.clone()].fill(av as f32);
-                c.nas[r].fill(0.0);
+                c.nas[r.clone()].fill(0.0);
+                c.fnz[r].fill(NASAL_POLE_HZ as f32);
             }
-            Segment::Nasal { av, .. } => {
+            Segment::Nasal { av, zero, .. } => {
                 c.av[r.clone()].fill(av as f32);
-                c.nas[r].fill(1.0);
+                c.nas[r.clone()].fill(1.0);
+                c.fnz[r].fill(zero as f32);
             }
             Segment::Fricative {
                 av, af, ff, fbw, ..
@@ -247,7 +258,10 @@ pub fn rasterise(plan: &[(Span, Segment)], w: Window, out: &mut ControlTracks, b
                 c.ah[r.clone()].fill(ah as f32);
                 c.b1x[r].fill(0.0);
             }
-            Segment::Closure { av, .. } => c.av[r].fill(av as f32),
+            Segment::Closure { av, bar, .. } => {
+                c.av[r.clone()].fill(av as f32);
+                c.vb[r].fill(if bar { 1.0 } else { 0.0 });
+            }
             Segment::Breath { .. } => c.ah[r].fill(BREATH_AH * breath as f32),
             Segment::Silence { .. } => {}
         }
@@ -576,12 +590,14 @@ impl<'a> Articulation<'a> {
             SMOOTH_B1X,
             SMOOTH_NOISE_BAND,
             SMOOTH_NOISE_BAND,
+            SMOOTH_VOICE_BAR,
+            SMOOTH_NASAL,
         ];
         let c = &mut *out;
         let smoothed = zero_phase_smooth_lanes(
             [
                 &mut c.f1, &mut c.f2, &mut c.f3, &mut c.nas, &mut c.av, &mut c.ah, &mut c.af,
-                &mut c.b1x, &mut c.ff, &mut c.fbw,
+                &mut c.b1x, &mut c.ff, &mut c.fbw, &mut c.vb, &mut c.fnz,
             ],
             taus.map(|t| one_pole_coeff_tau(t, FRAME_RATE)),
         );
@@ -689,6 +705,7 @@ mod tests {
             let c = control_tracks(&notes, &p, &settings, n, Rng::from_seed(7));
             for t in [
                 &c.av, &c.ah, &c.af, &c.ff, &c.fbw, &c.f1, &c.f2, &c.f3, &c.nas, &c.midi, &c.b1x,
+                &c.vb, &c.fnz,
             ] {
                 assert_eq!(t.len(), n);
                 assert!(t.iter().all(|x| x.is_finite()), "{voice:?}");
@@ -943,6 +960,45 @@ mod tests {
         );
         let mid = frame(0.5 * (n.t0 + n.t1));
         assert!((marked[mid] - n.midi).abs() < 0.05);
+    }
+
+    /// `vb` is 1 inside voiced closures (bars) and 0 elsewhere.
+    #[test]
+    fn voice_bar_marks_voiced_closures_only() {
+        use Phoneme::*;
+        let mut notes = vec![
+            note(0.5, 1.0, 50.0, &[B, Aa, D]),
+            note(1.1, 1.6, 52.0, &[P, Aa, G]),
+            note(1.7, 2.2, 53.0, &[T, Ey1, K]),
+            note(2.3, 2.8, 55.0, &[Jh, Aa, M]),
+        ];
+        notes[0].phrase_start = true;
+        let settings = VoiceSettings::default();
+        let p = settings.apply(voice_params(Voice::Baritone));
+        let plan = crate::articulation::plan_segments(&notes, &p, &settings);
+        let n = frames_for(&notes);
+        let mut c = ControlTracks::default();
+        rasterise(&plan, Window::song(n), &mut c, 1.0);
+        let mut bars = 0;
+        let mut covered = vec![false; n];
+        for (span, seg) in &plan {
+            let r = Window::song(n).clip(Window::frame(span.t0), Window::frame(span.t1));
+            if let Segment::Closure { bar, av, .. } = *seg {
+                assert_eq!(bar, av > 0.0, "bar follows voicing");
+                if bar {
+                    bars += 1;
+                    for i in r {
+                        covered[i] = true;
+                    }
+                }
+            }
+        }
+        assert_eq!(bars, 4, "closures of b, d, g and jh");
+        for i in 0..n {
+            assert_eq!(c.vb[i] == 1.0, covered[i], "frame {i}");
+            assert!(c.vb[i] == 0.0 || c.vb[i] == 1.0);
+        }
+        assert!(covered.iter().any(|&b| b));
     }
 
     #[test]

@@ -384,6 +384,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// Re-pinned to `0x00370a94307fdd54` for per-note vibrato variation and the revised pitch drift (step 0.004, position leak 0.995).
 /// Re-pinned to `0x45a58989d6eeb1b4` for the drift walk at step 0.000173, limit 0.30 (unclamped deviation 0.10 semitone).
 /// Re-pinned to `0x88d5be49d00276cc` for the consonant rules of fast notes (rate weight).
+/// Re-pinned to `0x4f12f8cd85b647aa` for the voice bar, the nasal pole-zero pair, lower sonorant voicing and the voiceless closure floor.
 #[test]
 fn demo_lead_render_is_bit_identical_at_default_phrasing() {
     let (voice, notes) = demo_lead_notes(1234);
@@ -400,7 +401,7 @@ fn demo_lead_render_is_bit_identical_at_default_phrasing() {
     let bytes: Vec<u8> = out.iter().flat_map(|x| x.to_le_bytes()).collect();
     assert_eq!(
         fnv1a(&bytes),
-        0x88d5be49d00276cc,
+        0x4f12f8cd85b647aa,
         "demo lead render changed at the default phrasing"
     );
 }
