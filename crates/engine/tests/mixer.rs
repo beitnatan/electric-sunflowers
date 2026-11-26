@@ -14,7 +14,7 @@
 
 use dsp::dynamics::{Compressor, GainComputer, Link, PeakDetector};
 use dsp::pan::{balance, equal_power};
-use dsp::reverb::{Fdn8, T60_DC, T60_NYQ};
+use dsp::reverb::{Fdn16, T60_DC, T60_NYQ};
 use engine::{
     demo_song, mix, mix_gain, mix_with, premix, print_reverb, print_stem, render, MixSettings,
     NoProgress, SparseBuf, Stem, Stems, Stereo, TrackId,
@@ -28,7 +28,7 @@ use song::{Band, Song};
 // field moved with this wave; every gain, pan and ordering is unchanged.)
 
 const MIX_BLOCK: usize = 1024;
-const WET: f64 = 0.55;
+const WET: f64 = 1.01;
 const PEAK: f64 = 0.89;
 const BUS_FLOOR: f64 = 1e-4;
 const BUS_RATIO: f64 = 2.2;
@@ -125,7 +125,7 @@ fn old_mix(stems: &Stems, band: &Band, seed: u64) -> Stereo {
     } else {
         None
     };
-    let mut fdn = Fdn8::new(SR_F, seed, T60_DC, T60_NYQ);
+    let mut fdn = Fdn16::new(SR_F, seed, T60_DC, T60_NYQ);
     let mut out = Stereo {
         l: vec![0.0; len],
         r: vec![0.0; len],
@@ -187,9 +187,12 @@ fn old_mix(stems: &Stems, band: &Band, seed: u64) -> Stereo {
     let mut pk = 1e-9f64;
     for (l, r) in out.l.chunks_mut(MIX_BLOCK).zip(out.r.chunks_mut(MIX_BLOCK)) {
         comp.process_stereo(l, r);
-        for (&a, &b) in l.iter().zip(r.iter()) {
-            pk = pk.max((a as f64).abs()).max((b as f64).abs());
-        }
+    }
+    // The crest limiter of the mix, as the mixer applies it.
+    let ceiling = engine::mix::pooled_active_rms(&out) * db_to_gain(engine::mix::CREST_DB);
+    dsp::dynamics::crest_limit(&mut out.l, &mut out.r, ceiling, SR_F);
+    for (&a, &b) in out.l.iter().zip(out.r.iter()) {
+        pk = pk.max((a as f64).abs()).max((b as f64).abs());
     }
     let g = PEAK / pk;
     for v in out.l.iter_mut().chain(out.r.iter_mut()) {

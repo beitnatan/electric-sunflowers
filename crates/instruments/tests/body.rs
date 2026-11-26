@@ -194,19 +194,57 @@ fn body_bands_are_stable_across_seeds() {
     }
 }
 
-/// The two channels stay decorrelated: mean |correlation coefficient| over
-/// 16 seeds under 0.25 (measured 0.03 guitar, 0.04 harp, 0.10 violin; the
-/// earlier model 0.20-0.22).
+/// Correlation coefficient of two signals.
+fn corr(a: &[f64], b: &[f64]) -> f64 {
+    let dot: f64 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+    let (ea, eb): (f64, f64) = (a.iter().map(|x| x * x).sum(), b.iter().map(|x| x * x).sum());
+    dot / (ea * eb).sqrt()
+}
+
+/// `x` band-passed to `lo`..`hi` Hz by an FFT mask.
+fn band(x: &[f64], lo: f64, hi: f64) -> Vec<f64> {
+    let n = 32768;
+    let fft = RealFft::new(n);
+    let mut scratch = fft.make_scratch();
+    let mut spec = vec![C32::default(); fft.spectrum_len()];
+    let mut time = vec![0.0f32; n];
+    for (t, &v) in time.iter_mut().zip(x) {
+        *t = v as f32;
+    }
+    fft.forward(&mut time, &mut spec, &mut scratch).unwrap();
+    let df = SR_F / n as f64;
+    for (k, z) in spec.iter_mut().enumerate() {
+        let f = k as f64 * df;
+        if f < lo || f > hi {
+            *z = C32::default();
+        }
+    }
+    let mut out = vec![0.0f32; n];
+    fft.inverse(&mut spec, &mut out, &mut scratch).unwrap();
+    out.iter().map(|&v| v as f64).collect()
+}
+
+/// The two channels are coherent by frequency (rho in body.rs): over 16
+/// seeds the mean correlation of the channels band-limited below 100 Hz is at
+/// least 0.9 (guitar and harp; their low modes are the body's own, so the
+/// band holds only the fixed draw) and above 2 kHz is within 0.35 +- 0.15.
+/// The violin has no modes below 180 Hz and is checked above 2 kHz only.
+/// Energy per channel stays 1 (`body_taps_have_unit_energy`).
 #[test]
-fn body_channels_are_decorrelated() {
+fn body_channels_are_coherent_by_frequency() {
     for body in BODIES {
-        let mut acc = 0.0;
+        let (mut lo, mut hi) = (0.0, 0.0);
         for seed in 0..16u64 {
             let [l, r] = body.taps(&mut Rng::stream(seed, tag("test.body.corr")));
-            acc += l.iter().zip(&r).map(|(a, b)| a * b).sum::<f64>().abs();
+            lo += corr(&band(&l, 0.0, 100.0), &band(&r, 0.0, 100.0));
+            hi += corr(&band(&l, 2000.0, 13000.0), &band(&r, 2000.0, 13000.0));
         }
-        let mean = acc / 16.0;
-        assert!(mean < 0.25, "{body:?}: mean |L/R correlation| {mean:.3}");
+        let (lo, hi) = (lo / 16.0, hi / 16.0);
+        println!("{body:?}: below 100 Hz {lo:.3}, above 2 kHz {hi:.3}");
+        if body != Body::Violin {
+            assert!(lo >= 0.9, "{body:?}: low correlation {lo:.3}");
+        }
+        assert!((hi - 0.35).abs() < 0.15, "{body:?}: high correlation {hi:.3}");
     }
 }
 
@@ -244,9 +282,10 @@ fn body_groups_are_well_posed() {
 
 /// The low groups (below `F_CROSS`) of guitar and harp are the body's own:
 /// identical for every seed, starting at the lowest mode (70-80 Hz guitar,
-/// 60-70 Hz harp), each keeping at least 20% of its drawn power (measured
-/// 0.21-0.99) at a gain under 20 (measured 1.0-14.7), so their amplitudes
-/// and phases come from the draw, not from rounding.
+/// 60-70 Hz harp), each keeping at least 15% of its drawn power (measured
+/// 0.18-0.99 since the guitar row was refitted to GuitarSet) at a gain
+/// under 20 (measured 1.0-14.7), so their amplitudes and phases come from
+/// the draw, not from rounding.
 #[test]
 fn body_low_groups_are_fixed_and_well_posed() {
     for body in [Body::Guitar, Body::Harp] {
@@ -266,7 +305,7 @@ fn body_low_groups_are_fixed_and_well_posed() {
         for g in &first {
             for c in 0..2 {
                 assert!(
-                    g.kept[c] >= 0.2 && g.gain[c] < 20.0,
+                    g.kept[c] >= 0.15 && g.gain[c] < 20.0,
                     "{body:?} {:.0} Hz ch {c}: kept {:.3} gain {:.2}",
                     g.f_lo,
                     g.kept[c],
