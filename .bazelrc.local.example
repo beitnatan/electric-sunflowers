@@ -1,0 +1,7 @@
+# Copy to .bazelrc.local (gitignored) and put in the org API key from
+# app.buildbuddy.io > Settings > Org API keys. .bazelrc try-imports it, so
+# every local Bazel run (bazel, scripts/bz, scripts/lint.sh in its
+# container) then uses the BuildBuddy remote cache and build results.
+# Never commit the key.
+common --remote_header=x-buildbuddy-api-key=YOUR_KEY_HERE
+build --config=buildbuddy

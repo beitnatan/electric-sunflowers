@@ -182,14 +182,14 @@ fn modulated_read_stays_inside_the_buffer() {
         let mut ns: Vec<u64> = (0..200_000).collect();
         ns.extend((0..40_000).map(|i| 200_000 + i * 1009));
         for &n in &ns {
-            for (k, &nom) in nominal.iter().enumerate().take(dsp::reverb::N_LINES) {
+            for (k, &nom) in nominal.iter().enumerate() {
                 let d = fdn.read_delay(k, n);
                 let nom = nom as f64;
                 assert!(
                     d >= 1.0 && d.floor() + 1.0 < seg,
                     "seed {seed} line {k} n {n}: {d}"
                 );
-                if k % 3 == 0 {
+                if k.is_multiple_of(3) {
                     assert!(
                         (d - nom).abs() <= dsp::reverb::MOD_DEPTH + 1e-9,
                         "seed {seed} line {k} n {n}: {d} vs {nom}"
