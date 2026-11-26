@@ -18,6 +18,7 @@ Traps met, each of which produced a wrong conclusion once:
 - A parameter that changes nothing is saturation (the drift walk sat on its clamp). Work the statistics from the code.
 - A level rule that matches RMS while the crest factor triples (modal kick: peak 7 to 8 times the 0.3 s RMS, as a real kick; the sine kick was 2.8). The mix needed a limiter, not the drum a change.
 - Agents' "after" renders can be stale; re-render with the final build before sending.
+- `cargo build -p X -p Y --examples` builds only the examples, not the binaries: every `sunflower` render from 17 to 26 November 2026 came from the binary of 13 November. Build the CLI with `cargo build --release -p sunflower` alone, and check the binary's time before sending a render.
 
 ## 2. Reference sets (statistics only are committed; all CC BY 4.0 or free)
 
@@ -63,6 +64,18 @@ Mix: 0.03 to 0.05% of a mix's samples lie more than 12 dB over its active RMS; t
 Reverb (by design; see 5.12 of the design for the measured numbers once the 16-line network is in): 8 lines summing to 0.39 s give a mode every 2.6 Hz against a mode width of 1 Hz at T60 2.2 s.
 
 Fast notes: on a 204 ms note the old consonant rules left the vowel a median of 148 ms and under 80 ms on 15% of notes. The fiddle slid into half of all leaps of 5 semitones or more whatever the note length, and never changed bow inside a run.
+
+### A machine listener (26 November 2026)
+
+Meta Audiobox Aesthetics (`tools/aes_compare.py`; CPU, about 1 s per 10 s window). Paired over aligned 10 s windows of the same song and seed:
+
+    change                                   owner          PQ diff (t)     CE diff (t)
+    demo: old brushes -> modal brushes       worse          -0.22 (-4.0)    -0.26 (-4.6)
+    full kit: old drums -> modal drums       better         +0.03 (+0.3)    +0.02 (+0.4)
+    Center Pivot mix, B1 x1 -> x2 / x3       cannot tell    +0.07 / +0.07   +0.09 / +0.10
+    Center Pivot voice alone, x1 -> x2 / x3  cannot tell    -0.08 / -0.11   -0.05 / -0.10
+
+Real recordings score no higher than the engine: vocadito singers PQ 6.6 to 7.5 and CE 4.9 to 5.6 against the engine's voice alone at PQ 7.2 and CE 5.6; the solo violin PQ 6.8 to 7.2. The model judges production defects (it caught the static of the modal brushes), not whether a source is natural. Use it as a regression check on mixes (fail a change that loses more than 0.15 in PQ or CE at t below -3), not as a judge of the voice. A naturalness predictor trained on synthetic singing (SingMOS-Pro, `South-Twilight/SingMOS`) is the next candidate for the voice.
 
 ## 4. The owner's verdicts by ear
 
