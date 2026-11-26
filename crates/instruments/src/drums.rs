@@ -82,7 +82,23 @@ use sfcore::time::sample_at;
 use sfcore::SR_F;
 use song::events::{DrumHit, DrumKind};
 use std::f64::consts::PI;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
+
+/// wasm32-unknown-unknown has no clock (`Instant::now` panics); the pool
+/// timer is a diagnostic only, so it reads zero there.
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Copy)]
+struct Instant;
+#[cfg(target_arch = "wasm32")]
+impl Instant {
+    fn now() -> Self {
+        Instant
+    }
+    fn elapsed(&self) -> std::time::Duration {
+        std::time::Duration::ZERO
+    }
+}
 
 /// Stream tag for per-hit random draws.
 pub const DRUM_HIT: Tag = tag("drums.hit");
