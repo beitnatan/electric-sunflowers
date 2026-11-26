@@ -21,10 +21,16 @@ const N: usize = 32768;
 
 fn main() {
     // Optional first seed (default 0).
-    let first: u64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(0);
+    let first: u64 = std::env::args()
+        .nth(1)
+        .and_then(|a| a.parse().ok())
+        .unwrap_or(0);
     let fft = RealFft::new(N);
     let mut scratch = fft.make_scratch();
-    let mut spec = [vec![C32::default(); fft.spectrum_len()], vec![C32::default(); fft.spectrum_len()]];
+    let mut spec = [
+        vec![C32::default(); fft.spectrum_len()],
+        vec![C32::default(); fft.spectrum_len()],
+    ];
     let mut time = vec![0.0f32; N];
     let df = SR_F / N as f64;
     let centres: Vec<f64> = (0..23).map(|k| 80.0 * 2f64.powf(k as f64 / 3.0)).collect();
@@ -65,15 +71,18 @@ fn main() {
                 for (b, &fc) in centres.iter().enumerate() {
                     let (f0, f1) = (fc * 2f64.powf(-1.0 / 6.0), fc * 2f64.powf(1.0 / 6.0));
                     let (k0, k1) = ((f0 / df).ceil() as usize, (f1 / df).floor() as usize);
-                    let p: f64 = spec[c][k0..=k1].iter().map(|z| (z.re as f64).powi(2) + (z.im as f64).powi(2)).sum::<f64>()
+                    let p: f64 = spec[c][k0..=k1]
+                        .iter()
+                        .map(|z| (z.re as f64).powi(2) + (z.im as f64).powi(2))
+                        .sum::<f64>()
                         / (k1 - k0 + 1) as f64;
                     db[c][b][seed as usize] = 10.0 * p.log10();
                 }
             }
             let dot: f64 = taps[0].iter().zip(&taps[1]).map(|(a, b)| a * b).sum();
             corr += dot.abs(); // unit energy per channel
-            // Low band: cross- and auto-spectra weighted by |H|^2 of a
-            // 4th-order Butterworth low-pass at 300 Hz.
+                               // Low band: cross- and auto-spectra weighted by |H|^2 of a
+                               // 4th-order Butterworth low-pass at 300 Hz.
             let (mut x, mut e0, mut e1) = (0.0, 0.0, 0.0);
             for (k, (&a, &b)) in spec[0].iter().zip(&spec[1]).enumerate() {
                 let w = 1.0 / (1.0 + (k as f64 * df / 300.0).powi(8));
@@ -92,7 +101,8 @@ fn main() {
             for ch in &db {
                 let v = &ch[b];
                 let m = v.iter().sum::<f64>() / v.len() as f64;
-                let s = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (v.len() - 1) as f64).sqrt();
+                let s =
+                    (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (v.len() - 1) as f64).sqrt();
                 sd = sd.max(s);
                 mean += m / 2.0;
             }
@@ -105,12 +115,26 @@ fn main() {
             corr_lo / SEEDS as f64
         );
         gains.sort_by(f64::total_cmp);
-        let pct = |p: f64| gains.get(((gains.len() as f64 - 1.0) * p).round() as usize).copied().unwrap_or(0.0);
-        println!("  group gain median {:.2}, 99th percentile {:.2}, 99.9th {:.2}", pct(0.5), pct(0.99), pct(0.999));
+        let pct = |p: f64| {
+            gains
+                .get(((gains.len() as f64 - 1.0) * p).round() as usize)
+                .copied()
+                .unwrap_or(0.0)
+        };
+        println!(
+            "  group gain median {:.2}, 99th percentile {:.2}, 99.9th {:.2}",
+            pct(0.5),
+            pct(0.99),
+            pct(0.999)
+        );
         println!(
             "  {n_groups} groups; max gain {:.2} ({:.0}-{:.0} Hz, {} modes); min kept {:.3} ({:.0}-{:.0} Hz, {} modes)",
             max_gain.0, max_gain.1, max_gain.2, max_gain.3, min_kept.0, min_kept.1, min_kept.2, min_kept.3
         );
     }
-    println!("taps: {:.1} ms per IR (total run {:.2} s)", t_taps.as_secs_f64() * 1e3 / (3 * SEEDS) as f64, t0.elapsed().as_secs_f64());
+    println!(
+        "taps: {:.1} ms per IR (total run {:.2} s)",
+        t_taps.as_secs_f64() * 1e3 / (3 * SEEDS) as f64,
+        t0.elapsed().as_secs_f64()
+    );
 }

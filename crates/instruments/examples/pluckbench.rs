@@ -41,7 +41,11 @@ fn main() {
     }
 
     println!("notes {NOTES}, {SECS} s each, MIDI 40-76");
-    println!("pluck_into  {:.3} s ({:.1} us/note)", best, 1e6 * best / NOTES as f64);
+    println!(
+        "pluck_into  {:.3} s ({:.1} us/note)",
+        best,
+        1e6 * best / NOTES as f64
+    );
     println!("(checksum {sink:.6})");
 
     spectrum(&midis[..200], len);

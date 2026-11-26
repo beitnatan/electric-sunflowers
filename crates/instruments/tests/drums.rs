@@ -203,7 +203,11 @@ fn band_curves_follow_their_tables() {
 
 #[test]
 fn tap_and_swish_are_deterministic_and_finite() {
-    for kind in [DrumKind::Tap, DrumKind::Swish { dur: 0.5 }, DrumKind::Swish { dur: 1.7 }] {
+    for kind in [
+        DrumKind::Tap,
+        DrumKind::Swish { dur: 0.5 },
+        DrumKind::Swish { dur: 1.7 },
+    ] {
         for vel in [0.2f32, 0.6, 1.0] {
             let a = hits_of(kind, vel, 3, 21);
             let b = hits_of(kind, vel, 3, 21);
@@ -211,7 +215,10 @@ fn tap_and_swish_are_deterministic_and_finite() {
             let c = hits_of(kind, vel, 3, 22);
             assert_ne!(a, c, "{kind:?} ignores the seed");
             assert!(a[0] != a[1], "{kind:?} repeats a hit exactly");
-            assert!(a.iter().flatten().all(|v| v.is_finite()), "{kind:?} not finite");
+            assert!(
+                a.iter().flatten().all(|v| v.is_finite()),
+                "{kind:?} not finite"
+            );
             assert!(a.iter().flatten().any(|&v| v != 0.0), "{kind:?} silent");
         }
     }

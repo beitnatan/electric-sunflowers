@@ -22,6 +22,8 @@ build:release --@rules_rust//rust/settings:codegen_units=1
 # --- CI: optimised without LTO. The render tests run the DSP crates over a
 # whole song; unoptimised they take 6+ minutes on a runner, optimised ~20 s.
 build:ci -c opt
+# Report every failed target in one run, not only the first.
+build:ci --keep_going
 
 # --- Lint: rustfmt-check and clippy aspects, self-employment's convention.
 # On for every build/test now that the tree is rustfmt-clean and the
