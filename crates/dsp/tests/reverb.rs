@@ -157,7 +157,12 @@ fn delays_are_the_sixteen_line_design() {
     assert_eq!(dsp::reverb::N_LINES, 16);
     let sum: usize = dsp::reverb::BASE_DELAYS.iter().sum();
     assert!(sum >= 43_000, "delay sum {sum}");
-    let prime = |n: usize| n > 1 && (2..).take_while(|i| i * i <= n).all(|i| n % i != 0);
+    let prime = |n: usize| {
+        n > 1
+            && (2..)
+                .take_while(|i| i * i <= n)
+                .all(|i| !n.is_multiple_of(i))
+    };
     for &d in &dsp::reverb::BASE_DELAYS {
         assert!(prime(d), "{d} is not prime");
     }
@@ -177,14 +182,14 @@ fn modulated_read_stays_inside_the_buffer() {
         let mut ns: Vec<u64> = (0..200_000).collect();
         ns.extend((0..40_000).map(|i| 200_000 + i * 1009));
         for &n in &ns {
-            for k in 0..dsp::reverb::N_LINES {
+            for (k, &nom) in nominal.iter().enumerate() {
                 let d = fdn.read_delay(k, n);
-                let nom = nominal[k] as f64;
+                let nom = nom as f64;
                 assert!(
                     d >= 1.0 && d.floor() + 1.0 < seg,
                     "seed {seed} line {k} n {n}: {d}"
                 );
-                if k % 3 == 0 {
+                if k.is_multiple_of(3) {
                     assert!(
                         (d - nom).abs() <= dsp::reverb::MOD_DEPTH + 1e-9,
                         "seed {seed} line {k} n {n}: {d} vs {nom}"
@@ -204,10 +209,10 @@ fn impulse_energy_decays_monotonically_in_100_ms_steps() {
     let mut fdn = Fdn16::new(FS, 1234, T60_DC, T60_NYQ);
     let n = (4.0 * FS) as usize;
     let mut e = vec![0.0f64; n];
-    for i in 0..n {
+    for (i, ei) in e.iter_mut().enumerate() {
         let x = if i == 0 { 1.0 } else { 0.0 };
         let [l, r] = fdn.process([x, x]);
-        e[i] = (l as f64).powi(2) + (r as f64).powi(2);
+        *ei = (l as f64).powi(2) + (r as f64).powi(2);
     }
     let step = (0.1 * FS) as usize;
     let blocks: Vec<f64> = (3..n / step)

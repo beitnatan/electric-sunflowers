@@ -8,6 +8,14 @@
 # local and cloud-agent builds.
 actions:
   - name: "Build and test"
+    # Ubuntu 24.04, not the 18.04 default: the bit-identical render tests pin
+    # checksums that depend on glibc's libm (sin, exp, pow), and they hold on
+    # 24.04 (glibc 2.39), not 18.04 (glibc 2.27). 16 GB: on the default 8 GB
+    # the //crates/engine:mixer test was killed.
+    container_image: "ubuntu-24.04"
+    resource_requests:
+      memory: "16GB"
+      cpu: 8
     triggers:
       push:
         branches:
