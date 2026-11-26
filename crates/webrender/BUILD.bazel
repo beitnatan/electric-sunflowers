@@ -1,0 +1,29 @@
+load("@crates//:defs.bzl", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+
+package(default_visibility = ["//visibility:public"])
+
+WEBRENDER_LOCAL_DEPS = [
+    "//crates/core:sfcore",
+    "//crates/song",
+    "//crates/engine",
+]
+
+# The browser entry. Bazel builds and lints it for the host only; the wasm
+# module that GitHub Pages serves is built by scripts/build-web.sh (cargo,
+# target wasm32-unknown-unknown; see .github/workflows/pages.yml).
+rust_library(
+    name = "webrender",
+    srcs = glob(["src/**/*.rs"]),
+    edition = "2021",
+    deps = WEBRENDER_LOCAL_DEPS + all_crate_deps(normal = True),
+)
+
+# Native reference for the wasm build: writes interleaved f32 stereo, for
+# comparing the two (web/README.md). Run with RAYON_NUM_THREADS=1.
+rust_binary(
+    name = "pcm",
+    srcs = ["examples/pcm.rs"],
+    edition = "2021",
+    deps = [":webrender"] + WEBRENDER_LOCAL_DEPS + all_crate_deps(normal = True),
+)

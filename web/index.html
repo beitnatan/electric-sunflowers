@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electric Sunflowers</title>
+<style>
+  :root { --bg:#fbfaf6; --fg:#1d1b16; --dim:#6b665a; --line:#d8d3c4; --acc:#b7791f; --bad:#a3312b; --ok:#2f6b3a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16140f; --fg:#ece7d8; --dim:#9b957f; --line:#37332a; --acc:#e0a53c; --bad:#e2736b; --ok:#7fc08c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:44rem; margin:0 auto; padding:1.5rem 1rem 4rem; }
+  h1 { font-size:1.4rem; margin:0 0 .25rem; }
+  p.sub { color:var(--dim); margin:0 0 1.25rem; }
+  fieldset { border:1px solid var(--line); border-radius:6px; padding:1rem; margin:0 0 1rem; }
+  legend { color:var(--dim); padding:0 .4rem; }
+  label { display:block; font-size:.85rem; color:var(--dim); margin:.5rem 0 .15rem; }
+  select, input, textarea, button { font:inherit; color:inherit; background:transparent; border:1px solid var(--line); border-radius:4px; padding:.35rem .5rem; }
+  select, input[type=number] { width:100%; }
+  textarea { width:100%; min-height:7rem; font:13px/1.4 ui-monospace, monospace; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  button { cursor:pointer; background:var(--acc); color:#16140f; border-color:var(--acc); font-weight:600; padding:.55rem 1.1rem; }
+  button:disabled { opacity:.5; cursor:default; }
+  #est { margin:.75rem 0 0; font-size:.9rem; }
+  #est.warn { color:var(--bad); }
+  #status { display:none; align-items:center; gap:.9rem; margin:1rem 0; padding:.9rem 1rem; border:1px solid var(--line); border-radius:6px; }
+  #status.on { display:flex; }
+  .spin { flex:none; width:2rem; height:2rem; border:3px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:spin .9s linear infinite; }
+  #status.idle .spin { animation:none; border-top-color:var(--ok); border-color:var(--ok); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration:3s; } }
+  #stat { flex:1; min-width:0; }
+  #stat b { font-variant-numeric:tabular-nums; }
+  .bar { height:6px; background:var(--line); border-radius:3px; margin-top:.4rem; overflow:hidden; }
+  .bar > i { display:block; height:100%; width:0; background:var(--acc); transition:width .25s; }
+  #err { color:var(--bad); white-space:pre-wrap; margin:.5rem 0; }
+  audio { width:100%; margin:.5rem 0; }
+  #links a { margin-right:1rem; }
+  h2 { font-size:1.15rem; margin:1.5rem 0 .1rem; }
+  .note { color:var(--dim); font-style:italic; margin:.25rem 0 1rem; }
+  .sec { margin:.9rem 0 .2rem; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+  .ln { padding:.05rem .4rem; border-left:3px solid transparent; cursor:pointer; }
+  .ln.now { border-left-color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent); }
+  small { color:var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Electric Sunflowers</h1>
+  <p class="sub">The song is written. The engine plays it here, in your browser, one thread, no server. The singer is synthetic.</p>
+
+  <fieldset>
+    <legend>Song</legend>
+    <label for="song">Bundled song</label>
+    <select id="song"></select>
+    <label for="json">Song JSON (replace to use your own)</label>
+    <textarea id="json" spellcheck="false"></textarea>
+    <div class="row">
+      <div><label for="seed">Seed</label><input id="seed" type="number" value="1234" step="1"></div>
+      <div><label for="voice">Voice</label>
+        <select id="voice">
+          <option value="0">the song's own</option><option value="1">bass</option><option value="2">baritone</option>
+          <option value="3">tenor</option><option value="4">alto</option><option value="5">soprano</option>
+        </select></div>
+    </div>
+    <p id="est">Loading the engine...</p>
+    <button id="go" disabled>Render</button>
+  </fieldset>
+
+  <div id="status" role="status" aria-live="polite">
+    <div class="spin" aria-hidden="true"></div>
+    <div id="stat"><div id="line1"></div><div id="line2"></div><div class="bar"><i id="fill"></i></div></div>
+  </div>
+  <div id="err"></div>
+
+  <section id="out" hidden>
+    <audio id="audio" controls></audio>
+    <div id="links"></div>
+    <h2 id="title"></h2>
+    <div class="note" id="note"></div>
+    <div id="lyrics"></div>
+  </section>
+  <p><small>Rendering is deterministic: the same song, seed and voice give the same recording here. It is not bit-identical to the native build (different math library, no flush-to-zero); the difference is 132 dB below the signal.</small></p>
+</main>
+<script type="module">
+import { wav16 } from './sunflower.js';
+const $ = (id) => document.getElementById(id);
+const SONGS = [['demo', 'Every Harbor (demo, 3 min)'], ['firelight-reel', 'Firelight Reel (1.7 min)'], ['center-pivot', 'Center Pivot (4 min)']];
+// Linear memory peak, fitted to three songs (see web/README.md): MB = BASE + PER_S * seconds of music.
+const BASE_MB = 60, PER_S_MB = 2.8;
+const mb = (b) => (b / 1048576).toFixed(0) + ' MB';
+const fmtT = (s) => { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+let worker = null, ready = false, probeTimer = 0, tick = 0, t0 = 0, url = null, lines = [];
+
+function spawn() {
+  ready = false; $('go').disabled = true;
+  worker = new Worker('./worker.js', { type: 'module' });
+  worker.onmessage = onMsg;
+  worker.onerror = (e) => fail('worker: ' + (e.message || 'failed to start'), true);
+  worker.postMessage({ type: 'init', url: new URL('./webrender.wasm', location.href).href });
+}
+const ask = (type, extra = {}) => worker.postMessage({ type, json: $('json').value, seed: Number($('seed').value) || 0, voice: Number($('voice').value), ...extra });
+
+function onMsg(e) {
+  const d = e.data;
+  if (d.type === 'ready') { ready = true; $('go').disabled = false; probe(); }
+  else if (d.type === 'probed') estimate(d.seconds);
+  else if (d.type === 'progress') progress(d);
+  else if (d.type === 'done') done(d);
+  else if (d.type === 'error') fail(d.message, d.fatal);
+}
+
+function estimate(sec) {
+  const est = BASE_MB + PER_S_MB * sec, el = $('est');
+  const dm = navigator.deviceMemory; // Chrome only, capped at 8 (GB)
+  const tight = est > 1500 || (dm && est > dm * 1024 * 0.3);
+  el.className = tight ? 'warn' : '';
+  el.textContent = `${fmtT(sec)} of music. Peak memory about ${est.toFixed(0)} MB` +
+    (dm ? ` (this device reports about ${dm} GB)` : '') +
+    (tight ? '. That is a lot for this device; the render may fail.' : '.');
+}
+function probe() {
+  clearTimeout(probeTimer);
+  if (!ready) return;
+  probeTimer = setTimeout(() => ask('probe'), 150);
+}
+
+function setStatus(on, idle) { $('status').classList.toggle('on', on); $('status').classList.toggle('idle', !!idle); }
+function elapsed() { return ((performance.now() - t0) / 1000).toFixed(1); }
+function paint(done, total, mem) {
+  $('line1').innerHTML = `Rendering: <b>${done}/${total}</b> parts done, <b>${elapsed()} s</b>`;
+  $('line2').textContent = 'Engine memory now ' + mb(mem);
+  $('fill').style.width = (100 * done / total) + '%';
+}
+let last = { done: 0, total: 14, mem: 0 };
+function progress(d) { last = d; paint(d.done, d.total, d.mem); }
+
+$('go').onclick = () => {
+  $('err').textContent = ''; $('out').hidden = true;
+  $('go').disabled = true; t0 = performance.now(); last = { done: 0, total: 14, mem: 0 };
+  setStatus(true); paint(0, 14, 0);
+  clearInterval(tick); tick = setInterval(() => paint(last.done, last.total, last.mem), 100);
+  ask('render');
+};
+
+function done(d) {
+  clearInterval(tick);
+  const secs = elapsed();
+  $('line1').innerHTML = `Done in <b>${secs} s</b>. Peak engine memory <b>${mb(d.mem)}</b>.`;
+  $('line2').textContent = `Estimate was ${(BASE_MB + PER_S_MB * d.meta.seconds).toFixed(0)} MB.`;
+  $('fill').style.width = '100%'; setStatus(true, true);
+  $('go').disabled = false;
+  const blob = wav16(d.l, d.r, d.rate);
+  if (url) URL.revokeObjectURL(url);
+  url = URL.createObjectURL(blob);
+  $('audio').src = url;
+  const name = (d.meta.title || 'song').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + $('seed').value + '.wav';
+  $('links').innerHTML = `<a href="${url}" download="${name}">Download WAV (${(blob.size / 1048576).toFixed(0)} MB)</a>`;
+  showSheet(d.meta.sheet);
+  $('out').hidden = false;
+}
+
+function showSheet(s) {
+  $('title').textContent = s.title;
+  $('note').textContent = s.note || '';
+  const box = $('lyrics'); box.textContent = ''; lines = [];
+  for (const sec of s.sections) {
+    const h = document.createElement('div'); h.className = 'sec'; h.textContent = sec.label;
+    box.append(h);
+    for (const ln of sec.lines) {
+      if (!ln.text) continue;
+      const p = document.createElement('div'); p.className = 'ln'; p.textContent = ln.text;
+      p.onclick = () => { $('audio').currentTime = ln.t0; $('audio').play(); };
+      box.append(p); lines.push({ el: p, t0: ln.t0, t1: ln.t1 });
+    }
+  }
+}
+$('audio').ontimeupdate = () => {
+  const t = $('audio').currentTime;
+  for (const l of lines) l.el.classList.toggle('now', t >= l.t0 && t < l.t1);
+};
+
+function fail(msg, fatal) {
+  clearInterval(tick); setStatus(false);
+  $('err').textContent = 'Error: ' + msg + (fatal ? '\n(The engine stopped; restarting it.)' : '');
+  if (fatal) { worker.terminate(); spawn(); } else $('go').disabled = !ready;
+}
+
+async function loadSong(k) {
+  try { $('json').value = await (await fetch(`./songs/${k}.json`)).text(); probe(); }
+  catch (e) { fail('could not load song ' + k); }
+}
+for (const [k, name] of SONGS) { const o = document.createElement('option'); o.value = k; o.textContent = name; $('song').append(o); }
+$('song').onchange = () => loadSong($('song').value);
+$('json').oninput = probe; $('seed').oninput = probe; $('voice').onchange = probe;
+
+if (typeof WebAssembly !== 'object') fail('this browser has no WebAssembly');
+else { spawn(); loadSong(SONGS[0][0]); }
+</script>
+</body>
+</html>
