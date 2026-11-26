@@ -290,7 +290,10 @@ mod limit_tests {
         let c = 0.5;
         let st = crest_limit(&mut l, &mut r, c, FS).expect("limited");
         assert!(st.reduced > 0 && st.min_gain < 0.2);
-        let worst = l.iter().chain(r.iter()).fold(0.0f32, |a, &v| a.max(v.abs()));
+        let worst = l
+            .iter()
+            .chain(r.iter())
+            .fold(0.0f32, |a, &v| a.max(v.abs()));
         assert!(worst as f64 <= c * (1.0 + 1e-6), "peak {worst}");
     }
 

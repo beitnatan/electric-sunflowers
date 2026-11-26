@@ -26,11 +26,7 @@ fn ir(seed: u64, wet: f64, left: bool, right: bool) -> [Vec<f32>; 2] {
     let mut or = vec![0.0f32; n];
     for s in (0..n).step_by(1024) {
         let e = (s + 1024).min(n);
-        fdn.process_block(
-            [&sl[s..e], &sr[s..e]],
-            [&mut ol[s..e], &mut or[s..e]],
-            wet,
-        );
+        fdn.process_block([&sl[s..e], &sr[s..e]], [&mut ol[s..e], &mut or[s..e]], wet);
     }
     [ol, or]
 }

@@ -244,7 +244,10 @@ fn body_channels_are_coherent_by_frequency() {
         if body != Body::Violin {
             assert!(lo >= 0.9, "{body:?}: low correlation {lo:.3}");
         }
-        assert!((hi - 0.35).abs() < 0.15, "{body:?}: high correlation {hi:.3}");
+        assert!(
+            (hi - 0.35).abs() < 0.15,
+            "{body:?}: high correlation {hi:.3}"
+        );
     }
 }
 

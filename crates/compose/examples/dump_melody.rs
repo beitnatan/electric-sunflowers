@@ -19,15 +19,21 @@ const DEMO: &str = include_str!("../../engine/src/demo.json");
 
 fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let target = args.first().ok_or("usage: dump_melody <song.json|demo> [--seed N] [--voice V]")?;
+    let target = args
+        .first()
+        .ok_or("usage: dump_melody <song.json|demo> [--seed N] [--voice V]")?;
     let mut seed: u64 = 1234;
     let mut voice: Option<Voice> = None;
     let mut i = 1;
     while i < args.len() {
-        let val = args.get(i + 1).ok_or_else(|| format!("{} needs a value", args[i]))?;
+        let val = args
+            .get(i + 1)
+            .ok_or_else(|| format!("{} needs a value", args[i]))?;
         match args[i].as_str() {
             "--seed" => seed = val.parse().map_err(|e| format!("--seed {val}: {e}"))?,
-            "--voice" => voice = Some(Voice::from_str(val).map_err(|e| format!("--voice {val}: {e}"))?),
+            "--voice" => {
+                voice = Some(Voice::from_str(val).map_err(|e| format!("--voice {val}: {e}"))?)
+            }
             other => return Err(format!("unknown option {other}")),
         }
         i += 2;
@@ -38,13 +44,19 @@ fn run() -> Result<(), String> {
     } else {
         std::fs::read_to_string(target).map_err(|e| format!("{target}: {e}"))?
     };
-    let raw: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("{target}: {e}"))?;
+    let raw: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("{target}: {e}"))?;
     let (song, repairs) = song::normalize_value(&raw).map_err(|e| format!("{target}: {e}"))?;
     for r in &repairs {
         eprintln!("# repair: {r}");
     }
     let prof = melody_profile(seed, &song);
-    for k in [SectionKind::Verse, SectionKind::Prechorus, SectionKind::Chorus, SectionKind::Bridge] {
+    for k in [
+        SectionKind::Verse,
+        SectionKind::Prechorus,
+        SectionKind::Chorus,
+        SectionKind::Bridge,
+    ] {
         eprintln!("# shape {k}: {:?}", prof.shape(k));
     }
 
@@ -65,7 +77,15 @@ fn run() -> Result<(), String> {
     for n in &prepared.comp.lead {
         let line = &prepared.form.lines[n.line_idx];
         let sec = &prepared.form.sections[line.sec];
-        println!("{}\t{}\t{}\t{}\t{}\t{}", sec.kind, sec.occ, line.li, n.i, n.midi, u8::from(n.lift));
+        println!(
+            "{}\t{}\t{}\t{}\t{}\t{}",
+            sec.kind,
+            sec.occ,
+            line.li,
+            n.i,
+            n.midi,
+            u8::from(n.lift)
+        );
     }
     Ok(())
 }

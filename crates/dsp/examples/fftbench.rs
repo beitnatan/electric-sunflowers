@@ -40,7 +40,15 @@ struct OldFft {
 impl OldFft {
     fn new(n: usize) -> Self {
         let lg = n.trailing_zeros();
-        let rev = (0..n as u32).map(|i| if lg == 0 { 0 } else { i.reverse_bits() >> (32 - lg) }).collect();
+        let rev = (0..n as u32)
+            .map(|i| {
+                if lg == 0 {
+                    0
+                } else {
+                    i.reverse_bits() >> (32 - lg)
+                }
+            })
+            .collect();
         let w = |i: usize| 2.0 * std::f64::consts::PI * i as f64 / n as f64;
         let cs = (0..n / 2).map(|i| w(i).cos()).collect();
         let sn = (0..n / 2).map(|i| -w(i).sin()).collect();
@@ -108,7 +116,10 @@ fn old_conv(x: &[f32], hl: &[f32], hr: &[f32], out_len: usize) -> [Vec<f32>; 2] 
         re.fill(0.0);
         im.fill(0.0);
         let e = (s + m).min(x.len());
-        re[..e - s].iter_mut().zip(&x[s..e]).for_each(|(o, &v)| *o = v as f64);
+        re[..e - s]
+            .iter_mut()
+            .zip(&x[s..e])
+            .for_each(|(o, &v)| *o = v as f64);
         fft.run(&mut re, &mut im, false);
         for k in 0..n {
             let (xr, xi) = (re[k], im[k]);
@@ -139,14 +150,18 @@ fn ms_per<F: FnMut()>(reps: usize, mut f: F) -> f64 {
 fn main() {
     sfcore::fp::flush_denormals();
     const N: usize = 65536;
-    let src: Vec<C32> = noise(2 * N, 1).chunks(2).map(|p| C32::new(p[0], p[1])).collect();
+    let src: Vec<C32> = noise(2 * N, 1)
+        .chunks(2)
+        .map(|p| C32::new(p[0], p[1]))
+        .collect();
 
     let fft = Fft::new(N);
     let mut data = src.clone();
     let mut scratch = fft.make_scratch();
     let t_new = ms_per(200, || {
         data.copy_from_slice(&src);
-        fft.forward(black_box(&mut data), &mut scratch).expect("sized from plan");
+        fft.forward(black_box(&mut data), &mut scratch)
+            .expect("sized from plan");
     });
     println!("complex fft n=65536 (rustfft f32):   {t_new:.3} ms per transform (200 runs)");
 
@@ -167,7 +182,8 @@ fn main() {
     let mut rs = rf.make_scratch();
     let t_real = ms_per(200, || {
         xin.copy_from_slice(&xs);
-        rf.forward(black_box(&mut xin), &mut spec, &mut rs).expect("sized from plan");
+        rf.forward(black_box(&mut xin), &mut spec, &mut rs)
+            .expect("sized from plan");
     });
     println!("real fft n=131072 (realfft f32):      {t_real:.3} ms per transform (200 runs)");
 
@@ -177,9 +193,16 @@ fn main() {
     let hr: Vec<f64> = noise(17000, 5).iter().map(|&v| v as f64 * 0.01).collect();
     let t = Instant::now();
     let ir = StereoIr::new(&hl, &hr);
-    println!("StereoIr::new 17000 taps (n={}): {:.1} ms", ir.fft_len(), t.elapsed().as_secs_f64() * 1e3);
+    println!(
+        "StereoIr::new 17000 taps (n={}): {:.1} ms",
+        ir.fft_len(),
+        t.elapsed().as_secs_f64() * 1e3
+    );
     let out_len = len + 17000;
-    let pool1 = rayon::ThreadPoolBuilder::new().num_threads(1).build().expect("pool");
+    let pool1 = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .expect("pool");
     let mut best1 = f64::MAX;
     let mut bestn = f64::MAX;
     let mut y1 = [Vec::new(), Vec::new()];
@@ -192,14 +215,27 @@ fn main() {
         bestn = bestn.min(t.elapsed().as_secs_f64());
     }
     println!("convolve 186 s, 17000 taps, 1 thread:  {best1:.3} s (best of 3)");
-    println!("convolve 186 s, 17000 taps, {} threads: {bestn:.3} s (best of 3)", rayon::current_num_threads());
+    println!(
+        "convolve 186 s, 17000 taps, {} threads: {bestn:.3} s (best of 3)",
+        rayon::current_num_threads()
+    );
 
     let hl32: Vec<f32> = hl.iter().map(|&v| v as f32).collect();
     let hr32: Vec<f32> = hr.iter().map(|&v| v as f32).collect();
     let t = Instant::now();
     let yo = old_conv(&x, &hl32, &hr32, out_len);
-    println!("old convolve 186 s, 1 thread:          {:.3} s", t.elapsed().as_secs_f64());
+    println!(
+        "old convolve 186 s, 1 thread:          {:.3} s",
+        t.elapsed().as_secs_f64()
+    );
     let peak = yo[0].iter().fold(0.0f32, |a, v| a.max(v.abs()));
-    let diff = y1[0].iter().zip(&yo[0]).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
-    println!("new vs old convolution, left: max diff / peak = {:.2e}", diff / peak);
+    let diff = y1[0]
+        .iter()
+        .zip(&yo[0])
+        .map(|(a, b)| (a - b).abs())
+        .fold(0.0f32, f32::max);
+    println!(
+        "new vs old convolution, left: max diff / peak = {:.2e}",
+        diff / peak
+    );
 }

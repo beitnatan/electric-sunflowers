@@ -19,7 +19,8 @@ use voice::{voice_params, VoiceSettings};
 /// `arrange::vocals::notes` conversion, duplicated here so `voice` need not
 /// depend on `arrange`).
 fn demo_lead_notes(seed: u64) -> (Voice, Vec<VocalNote>) {
-    let raw: serde_json::Value = serde_json::from_str(include_str!("../../engine/src/demo.json")).expect("demo.json is JSON");
+    let raw: serde_json::Value = serde_json::from_str(include_str!("../../engine/src/demo.json"))
+        .expect("demo.json is JSON");
     let (song, _) = song::normalize_value(&raw).expect("demo.json normalises");
     let p = compose::prepare::prepare(&song, seed, None);
     let notes = compose::prepare::vocal_notes(&p.comp.lead, 1.0)
@@ -72,14 +73,25 @@ fn main() {
     let (voice, notes) = demo_lead_notes(1234);
     let frames = Window::frame(notes.last().map_or(0.0, |n| n.t1) + 1.0).max(0) as usize;
 
-    let deliveries = [Delivery::Legato, Delivery::Flowing, Delivery::Parlando, Delivery::Detached];
+    let deliveries = [
+        Delivery::Legato,
+        Delivery::Flowing,
+        Delivery::Parlando,
+        Delivery::Detached,
+    ];
     let endings = [Endings::Held, Endings::Released, Endings::Clipped];
 
     let mut mean_voiced = [0.0f64; 4];
     for (i, &delivery) in deliveries.iter().enumerate() {
         let mut sum = 0.0;
         for &ending in &endings {
-            let style = SingStyle { phrasing: Phrasing { delivery, endings: ending }, ..SingStyle::LEAD };
+            let style = SingStyle {
+                phrasing: Phrasing {
+                    delivery,
+                    endings: ending,
+                },
+                ..SingStyle::LEAD
+            };
             let settings = VoiceSettings::from(&style);
             let p = settings.apply(voice_params(voice));
             let ct = control_tracks(&notes, &p, &settings, frames, Rng::from_seed(1));
@@ -93,7 +105,12 @@ fn main() {
         mean_voiced[i] = sum / endings.len() as f64;
     }
 
-    let (legato, flowing, parlando, detached) = (mean_voiced[0], mean_voiced[1], mean_voiced[2], mean_voiced[3]);
+    let (legato, flowing, parlando, detached) = (
+        mean_voiced[0],
+        mean_voiced[1],
+        mean_voiced[2],
+        mean_voiced[3],
+    );
     println!("mean voiced fraction: legato {legato:.3} flowing {flowing:.3} parlando {parlando:.3} detached {detached:.3}");
     let ok = detached < parlando && parlando < flowing && flowing <= legato;
     println!("{}", if ok { "PASS" } else { "FAIL" });
