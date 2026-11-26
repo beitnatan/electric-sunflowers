@@ -122,9 +122,14 @@ pub extern "C" fn sf_alloc(len: usize) -> *mut u8 {
     p
 }
 
+/// # Safety
+///
+/// `ptr` and `len` must be a pointer from `sf_alloc(len)` that has not been
+/// freed.
 #[no_mangle]
-pub extern "C" fn sf_dealloc(ptr: *mut u8, len: usize) {
-    // SAFETY: pairs with `sf_alloc` (same capacity, no initialised bytes).
+pub unsafe extern "C" fn sf_dealloc(ptr: *mut u8, len: usize) {
+    // SAFETY: the caller pairs this with `sf_alloc` (same capacity, no
+    // initialised bytes).
     unsafe { drop(Vec::from_raw_parts(ptr, 0, len.max(1))) }
 }
 
