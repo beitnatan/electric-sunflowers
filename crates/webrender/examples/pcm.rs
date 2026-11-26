@@ -8,7 +8,11 @@ fn main() {
     let seed: u64 = a[2].parse().expect("seed");
     let t = std::time::Instant::now();
     let r = webrender::render_pcm(&json, seed, None, &engine::NoProgress).expect("render");
-    eprintln!("native render {:.2} s, {} samples", t.elapsed().as_secs_f64(), r.l.len());
+    eprintln!(
+        "native render {:.2} s, {} samples",
+        t.elapsed().as_secs_f64(),
+        r.l.len()
+    );
     let mut f = std::io::BufWriter::new(std::fs::File::create(&a[3]).expect("create"));
     for (l, r) in r.l.iter().zip(&r.r) {
         f.write_all(&l.to_le_bytes()).unwrap();
