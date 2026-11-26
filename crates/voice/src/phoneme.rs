@@ -197,9 +197,18 @@ pub const CONSONANTS: [Option<Consonant>; Phoneme::COUNT] = {
     t[P::R as usize] = Some(son(Sonorant, [420.0, 1250.0, 1650.0], 0.60, 0.06));
     t[P::W as usize] = Some(son(Sonorant, [300.0, 650.0, 2200.0], 0.50, 0.055));
     t[P::Y as usize] = Some(son(Sonorant, [270.0, 2100.0, 3000.0], 0.50, 0.05));
-    t[P::M as usize] = Some(nasal(son(Nasal, [280.0, 1100.0, 2300.0], NASAL_AV_M, 0.085), 1000.0));
-    t[P::N as usize] = Some(nasal(son(Nasal, [280.0, 1650.0, 2600.0], NASAL_AV_N, 0.06), 1600.0));
-    t[P::Ng as usize] = Some(nasal(son(Nasal, [280.0, 2100.0, 2700.0], NASAL_AV_NG, 0.065), 2500.0));
+    t[P::M as usize] = Some(nasal(
+        son(Nasal, [280.0, 1100.0, 2300.0], NASAL_AV_M, 0.085),
+        1000.0,
+    ));
+    t[P::N as usize] = Some(nasal(
+        son(Nasal, [280.0, 1650.0, 2600.0], NASAL_AV_N, 0.06),
+        1600.0,
+    ));
+    t[P::Ng as usize] = Some(nasal(
+        son(Nasal, [280.0, 2100.0, 2700.0], NASAL_AV_NG, 0.065),
+        2500.0,
+    ));
     // Fricatives carry the locus of their place (`docs/engine-design.md`,
     // consonants): the formants sit near it under the noise and move to the
     // vowel after it, as after a stop.

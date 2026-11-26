@@ -987,16 +987,14 @@ mod tests {
                 assert_eq!(bar, av > 0.0, "bar follows voicing");
                 if bar {
                     bars += 1;
-                    for i in r {
-                        covered[i] = true;
-                    }
+                    covered[r].fill(true);
                 }
             }
         }
         assert_eq!(bars, 4, "closures of b, d, g and jh");
-        for i in 0..n {
-            assert_eq!(c.vb[i] == 1.0, covered[i], "frame {i}");
-            assert!(c.vb[i] == 0.0 || c.vb[i] == 1.0);
+        for (i, (&vb, &cov)) in c.vb.iter().zip(&covered).enumerate().take(n) {
+            assert_eq!(vb == 1.0, cov, "frame {i}");
+            assert!(vb == 0.0 || vb == 1.0);
         }
         assert!(covered.iter().any(|&b| b));
     }

@@ -801,11 +801,7 @@ fn consonant_segments(
             let f = [0, 1, 2].map(|i| t[i] * 0.75 + vf[i] * 0.25);
             let av = amp * c.av;
             let seg = if c.class == ConsClass::Nasal {
-                Segment::Nasal {
-                    f,
-                    av,
-                    zero: c.fnz,
-                }
+                Segment::Nasal { f, av, zero: c.fnz }
             } else {
                 Segment::Sonorant { f, av }
             };
@@ -1260,7 +1256,10 @@ mod tests {
                     .sum();
                 let coda_room = syl[k + 1].onset_start - syl[k].vowel_start;
                 assert!(
-                    coda > 0.0 && coda <= coda_room * (CODA_SHARE - FAST_CODA_CUT).max(PROTECT_CODA_SHARE) + 1e-12,
+                    coda > 0.0
+                        && coda
+                            <= coda_room * (CODA_SHARE - FAST_CODA_CUT).max(PROTECT_CODA_SHARE)
+                                + 1e-12,
                     "{voice:?} coda {coda}"
                 );
                 let cons: f64 = plan

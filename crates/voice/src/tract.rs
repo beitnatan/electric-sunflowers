@@ -177,8 +177,8 @@ impl Tract {
     pub fn ramp_nasal_zero(&mut self, next: (f64, f64)) {
         let t = zero_coeffs(next.0, next.1);
         let k = 1.0 / HOP as f64;
-        for q in 0..3 {
-            self.nz_step[q] = (t[q] - self.nz[q]) * k;
+        for ((st, &tq), &nq) in self.nz_step.iter_mut().zip(&t).zip(&self.nz) {
+            *st = (tq - nq) * k;
         }
         self.nz_target = t;
         self.nz_left = HOP as u32;
@@ -416,8 +416,8 @@ impl Tract {
     /// DC gain of the cascade with the current coefficients (1 by
     /// construction of the Klatt resonator and the shelf's unity DC).
     pub fn cascade_dc_gain(&self) -> f64 {
-        let mut g = (self.nz[0] + self.nz[1] + self.nz[2]) * self.np.a
-            / (1.0 - self.np.b - self.np.c);
+        let mut g =
+            (self.nz[0] + self.nz[1] + self.nz[2]) * self.np.a / (1.0 - self.np.b - self.np.c);
         for r in self.moving.iter().chain(self.fixed.iter()) {
             g *= r.a / (1.0 - r.b - r.c);
         }
@@ -513,7 +513,8 @@ mod tests {
         for blk in y.chunks_mut(HOP) {
             t.voice_bar_block(blk, (1.0, 1.0));
         }
-        let rms = |v: &[f64]| (v[n / 2..].iter().map(|a| a * a).sum::<f64>() / (n / 2) as f64).sqrt();
+        let rms =
+            |v: &[f64]| (v[n / 2..].iter().map(|a| a * a).sum::<f64>() / (n / 2) as f64).sqrt();
         20.0 * (rms(&y) / rms(&x)).log10()
     }
 
