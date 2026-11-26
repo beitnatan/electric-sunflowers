@@ -19,3 +19,7 @@ GitHub's Pages documentation lists no way to set response headers (limits page: 
 Estimate used by the page: 60 MB + 2.8 MB per second of music (fits all three within 6%). Wasm memory never shrinks, so the figure after a render is the peak. The page also holds the result (8 bytes per sample pair) and a WAV copy (4 bytes per pair) outside this figure.
 
 Native versus wasm PCM, same seed: SNR 132 dB, max sample difference 7e-7. Not bit-identical (libm differs; wasm has no flush-to-zero).
+
+## Deploy
+
+`.github/workflows/pages.yml` builds this folder and publishes it to GitHub Pages on every trunk push that changes `web/`, `crates/`, the build script or `Cargo.lock`. Pull requests build and smoke-test it (`node web/smoke.mjs`) without deploying. One-time setting: repository Settings, Pages, Source: "GitHub Actions". The site URL appears on the deploy job.

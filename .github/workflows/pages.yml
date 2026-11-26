@@ -1,0 +1,49 @@
+# Builds the browser page (web/ plus the wasm engine) and publishes it to
+# GitHub Pages. Pull requests build and smoke-test it; only trunk deploys.
+# One-time setting: repository Settings > Pages > Source: "GitHub Actions".
+name: pages
+
+on:
+  push:
+    branches: ["trunk"]
+    paths: ["web/**", "crates/**", "scripts/build-web.sh", "Cargo.lock", ".github/workflows/pages.yml"]
+  pull_request:
+    branches: ["trunk"]
+    paths: ["web/**", "crates/webrender/**", "scripts/build-web.sh", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dependencies are vendored (.cargo/config.toml), so cargo needs no network.
+      - name: build the wasm engine and collect the songs
+        run: scripts/build-web.sh
+
+      # Renders Firelight Reel (about 6 s) and checks the samples.
+      - name: smoke test
+        run: node web/smoke.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/trunk'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
