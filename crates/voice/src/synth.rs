@@ -180,6 +180,8 @@ pub struct VoiceSynth {
     /// Formant scale of the voice (`VoiceParams::fs`), for the vowel
     /// modification at high pitch.
     fs: f64,
+    /// Lower f0 limit of the vowel modification (`VoiceParams::vmod_lo`).
+    vmod_lo: f64,
     /// Per-frame noise buffers.
     asp: [f32; HOP],
     fric: [f32; HOP],
@@ -189,8 +191,7 @@ pub struct VoiceSynth {
 /// over their references removed, the f0 range (Hz) it ramps in over, and
 /// the references (Hz, unscaled; times the voice's `fs`).
 const VMOD_MAX: f64 = 1.0;
-const VMOD_F0_LO: f64 = 300.0;
-const VMOD_F0_HI: f64 = 500.0;
+const VMOD_RAMP: f64 = 200.0;
 const VMOD_F2_REF: f64 = 2000.0;
 const VMOD_F3_REF: f64 = 2500.0;
 
@@ -228,6 +229,7 @@ impl VoiceSynth {
             breath: p.breath,
             b1_scale: p.b1_scale,
             fs: p.fs,
+            vmod_lo: p.vmod_lo,
             asp: [0.0; HOP],
             fric: [0.0; HOP],
         }
@@ -253,7 +255,7 @@ impl VoiceSynth {
         let nas = ctl.nas[m] as f64;
         // Vowel modification at high pitch: F2 and F3 above their reference
         // move down toward it (sung front vowels), by `m` of the excess.
-        let vm = VMOD_MAX * smoothstep(VMOD_F0_LO, VMOD_F0_HI, f0);
+        let vm = VMOD_MAX * smoothstep(self.vmod_lo, self.vmod_lo + VMOD_RAMP, f0);
         let f2 = ctl.f2[m] as f64;
         let f3 = ctl.f3[m] as f64;
         let f2 = f2 - vm * (f2 - VMOD_F2_REF * self.fs).max(0.0);

@@ -146,3 +146,30 @@ soprano    69/34->71/36  3.09->3.33 7.22->7.27 2.79->2.82 10.69->10.73 2/4->2/4 
 ```
 
 Alto warmth +18 (timbre unchanged), SingMOS +0.23, PQ +0.22, per-bin open H1-H2 within 0.3 dB. Soprano changes only through the /iy/ modification. Not done: Whisper word error, listening by ear (the alto's brighter source and the soprano's /iy/ at 550-750 Hz need it).
+
+### Alto formant side (sf, f1s, shelf, high resonances, /i/ modification)
+
+Levers not yet tried: formant scales, F4/F5, the 4 high resonances, the 5.2 kHz shelf. Screen: alto word-list timbre (baseline 40). The J score is 0 until J is under 10 dB; alto J was 13.8 dB, dominated by 6.3 kHz (-19 dB) and 8 kHz (-40 dB) against the singers, with 2.5-4 kHz 8 dB high. New `VoiceParams::high_bw` scales the bandwidth of the 4 high resonances (default 1, bit-identical): 0.05 lifts 6-8 kHz harmonics by 14 to 17 dB. With sf 0 the 2.5-4 kHz excess falls. Soprano: no lever moved timbre (36 to 36; its J is set by the 630, 800 and 1600 Hz bands of the 466 Hz comb gaps); unchanged.
+
+```
+alto setting (sf 0, high_bw 0.05 unless noted)  timbre  vow    demo SingMOS  PQ    per-bin open H1-H2 E-T (250-300, 300-350, 350-400)
+baseline                                         40      13.07  3.55          7.00  +0.12 +0.27 -0.20
+high_bw 0.05 only                                44      -      3.50          7.01  -
+F4/F5 x1.1                                       52      13.09  3.44          7.28  +0.16 +0.32 -0.15   (SingMOS -0.11: rejected)
+f1s 1.12                                         49      13.27  3.54          7.06  -0.50 +1.06 -0.21   (H1-H2 spread: rejected)
+f1s 1.11 / rd 2.2 / rd 2.7 / b1_scale 1.6        -       -      -             -     spread stays 1.2-1.6 dB; rd, b1_scale shift all bins together
+f1s 1.10, shelf 19                               48      13.15  3.47          7.08  -0.25 +0.65 -0.38
+f1s 1.10, shelf 17.5 (y3)                        48      13.16  3.49          7.07  -0.25 +0.65 -0.38
+```
+
+y3 (sf 0, f1s 1.10, shelf 17.5, high_bw 0.05) was accepted by the owner although demo SingMOS falls 0.06. Heard by the owner: the /iy/ of "leaves" (demo, 330 Hz) nearly squeaks: H8 (2.65 kHz, on F2) stands 10 to 17 dB above H7 and H9 and the vibrato sweeps it; voice-tune2 has the same. The front-vowel modification of F2 and F3 (synth.rs) began at 300 Hz and hardly acts at 330 Hz. New `VoiceParams::vmod_lo` (default 300, bit-identical; baritone, tenor and soprano leads compare equal with cmp) sets its lower limit; the alto uses 225 Hz. A wider F2 bandwidth under modification (tried, 1.5x and 4x) did not change the partial.
+
+```
+330 Hz note (demo, t 16.18 s, 0.5-1.2 s in), median H1..H15 re strongest, dB; H8 re mean(H7,H9)
+y3 (vmod_lo 300)  0 -21 -32 -37 -39 -37 -31 -14 -23 -16 -15 -19 -28 -32 -46    +12.9
+vmod_lo 250       0 -21 -31 -36 -38 -36 -27 -18 -22 -14 -22 -23 -32 -35 -49    +7.1
+vmod_lo 225       0 -21 -31 -36 -38 -35 -24 -21 -20 -20 -26 -26 -34 -37 -51    +1.7  (chosen)
+vmod_lo 200       0 -21 -31 -36 -37 -34 -20 -22 -16 -26 -29 -28 -36 -39 -52    -3.7
+```
+
+At 225 no partial H3-H14 is over 8 dB above both neighbours at the 90th percentile of frames (y3: H8 and H10 at 10 to 12). Word list, alto /iy/ and /ih/ at 300-400 Hz (25 notes): H8 re mean(H7,H9) -0.8 (y3) and +0.7; p90 isolation H7 8 (y3) and 10. Cost: demo SingMOS 3.49 (vmod_lo 300), 3.45 (250), 3.44 (225), 3.43 (200); against the voice-tune2 baseline 3.55 the chosen setting is -0.11 (y3 alone -0.06). Other gates at 225: demo PQ 7.06 (baseline 7.00), word-list SingMOS 2.64 (2.70), word-list PQ 7.28, vow 13.14 (13.07), word-list timbre 48 warmth 55, per-bin open H1-H2 -0.25 +0.65 -0.38 (baseline +0.12 +0.27 -0.20, all within 0.5 dB), phoneme hits f 2/4, r 12/30, l 7/14, iy 17/17, ey 6/15, ih 4/15 (baseline 2/4, 12/30, 8/14, 17/17, 5/15, 4/15). Not heard. Gate baseline not re-captured; the engine solo demo checksum is re-pinned.

@@ -156,6 +156,7 @@ fn sheet_marks_singers_only_in_a_duet() {
 /// Re-pinned to `0xda0565233add5558` for the voiceless closure floor protected from the onset and coda compression.
 /// Re-pinned to `0x232e1bcc9a80e185` for the merge of the consonant cues with the alto and soprano presets with a wider B1 (rd 1.6, b1_scale 2).
 /// Re-pinned to `0x7821995cc0181d90` for the weak flat /f/, the /r/ F3 dip, closure leak, coda /l/, the soprano /i/ modification and the alto capped source.
+/// Re-pinned to `0xdb7d8852676427f6` for the alto timbre (no singer's formant, narrow high resonances, f1s 1.10) and the alto /i/ modification from 225 Hz.
 #[test]
 fn solo_demo_mix_is_bit_identical() {
     let song = demo_song();
@@ -163,7 +164,7 @@ fn solo_demo_mix_is_bit_identical() {
     let m = mix(&stems, &song.band, 1234);
     let h = fnv1a(&mix_bytes(&m.l, &m.r));
     assert_eq!(
-        h, 0x7821995cc0181d90,
+        h, 0xdb7d8852676427f6,
         "solo demo mix checksum changed: {h:#x}"
     );
 }
