@@ -152,7 +152,9 @@ fn sheet_marks_singers_only_in_a_duet() {
 /// Re-pinned to `0x41201bbc9d46498f` for the consonant rules of fast notes (rate weight).
 /// Re-pinned to `0x826696ba52ba1693` for the violin body row fitted to solo violin recordings and the string bass envelope and low-pass fitted to Iowa pizzicato.
 /// Re-pinned to `0x31059fb9ff79c2c3` for the merge of the reverb, the tenor fit, the violin row and the bass.
-/// Re-pinned to `0x32afe7daacf892bf` for the alto and soprano presets with a wider B1 (rd 1.6, b1_scale 2).
+/// Re-pinned to `0xc2a39f598f6b55aa` for the voice bar, the nasal pole-zero pair, lower sonorant voicing and the voiceless closure floor.
+/// Re-pinned to `0xda0565233add5558` for the voiceless closure floor protected from the onset and coda compression.
+/// Re-pinned to `0x232e1bcc9a80e185` for the merge of the consonant cues with the alto and soprano presets with a wider B1 (rd 1.6, b1_scale 2).
 #[test]
 fn solo_demo_mix_is_bit_identical() {
     let song = demo_song();
@@ -160,7 +162,7 @@ fn solo_demo_mix_is_bit_identical() {
     let m = mix(&stems, &song.band, 1234);
     let h = fnv1a(&mix_bytes(&m.l, &m.r));
     assert_eq!(
-        h, 0x32afe7daacf892bf,
+        h, 0x232e1bcc9a80e185,
         "solo demo mix checksum changed: {h:#x}"
     );
 }

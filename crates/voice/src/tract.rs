@@ -8,6 +8,12 @@
 //!   linearly per sample, design 3.4); F4, F5 and up to four high
 //!   resonances at 5.5, 6.6, 7.7, 8.8 kHz times the voice's formant scale
 //!   are fixed per voice and designed once.
+//! - Nasal pole-zero pair (Klatt 1980, RNP and RNZ) ahead of F1: a pole at
+//!   270 Hz (bandwidth 100 Hz) and a zero, the FIR (1/a, -b/a, -c/a) of the
+//!   Klatt resonator of the same centre and bandwidth. With the zero at
+//!   the pole's centre and bandwidth the pair cancels; in a nasal the zero
+//!   moves to the nasal's antiresonance. The zero's coefficients ramp per
+//!   sample like F1-F3.
 //! - RBJ high shelf, `shelf_db` (16 dB for tenor, alto and soprano) at
 //!   5.2 kHz, Q 0.7, after the cascade.
 //! - Frication: white noise through an RBJ constant-peak band-pass at the
@@ -31,7 +37,10 @@ use dsp::resonator::{coeffs, Resonator};
 use sfcore::{HOP, SR_F};
 
 use crate::params::VoiceParams;
-use crate::tuning::{FRICATION_GAIN, SHELF_HZ, SHELF_Q};
+use crate::tuning::{
+    FRICATION_GAIN, NASAL_POLE_BW_HZ, NASAL_POLE_HZ, NASAL_ZERO_BW_HZ, SHELF_HZ, SHELF_Q,
+    VOICE_BAR_HZ, VOICE_BAR_Q,
+};
 
 /// Most high resonances above F5.
 pub const MAX_HIGH: usize = 4;
@@ -58,6 +67,13 @@ pub struct Formants {
 /// Unused high resonances are identity sections (a = 1, b = c = 0).
 const N_FIXED: usize = 2 + MAX_HIGH;
 
+/// Coefficients (A, B, C) of the nasal zero at centre `f` and bandwidth
+/// `bw`: y = A x + B x1 + C x2, the inverse of the Klatt resonator.
+fn zero_coeffs(f: f64, bw: f64) -> [f64; 3] {
+    let (a, b, c) = design(f, bw);
+    [1.0 / a, -b / a, -c / a]
+}
+
 /// The tract filters and their state.
 pub struct Tract {
     /// F1-F3. Coefficients ramp per sample toward `target` by `step`
@@ -68,6 +84,16 @@ pub struct Tract {
     target: [[f64; 3]; 3],
     left: u32,
     fixed: [Resonator; N_FIXED],
+    /// Nasal pole (fixed), and the nasal zero: coefficients, ramp step,
+    /// target, samples left, last two inputs.
+    np: Resonator,
+    nz: [f64; 3],
+    nz_step: [f64; 3],
+    nz_target: [f64; 3],
+    nz_left: u32,
+    nz_x: [f64; 2],
+    /// Voice bar low-pass.
+    bar: Biquad,
     /// Index of the last non-identity fixed section.
     last_fixed: usize,
     shelf: Biquad,
@@ -96,7 +122,17 @@ impl Tract {
             let f = HIGH_HZ[h] * fs;
             fixed[2 + h].set_coeffs(design(f, 420.0 + 0.05 * f));
         }
+        let mut np = Resonator::default();
+        np.set_coeffs(design(NASAL_POLE_HZ, NASAL_POLE_BW_HZ));
+        let rest = zero_coeffs(NASAL_POLE_HZ, NASAL_POLE_BW_HZ);
         Tract {
+            np,
+            nz: rest,
+            nz_step: [0.0; 3],
+            nz_target: rest,
+            nz_left: 0,
+            nz_x: [0.0; 2],
+            bar: Biquad::new(BiquadCoeffs::lowpass(SR_F, VOICE_BAR_HZ, VOICE_BAR_Q)),
             moving: [Resonator::default(); 3],
             step: [[0.0; 3]; 3],
             target: [[0.0; 3]; 3],
@@ -127,6 +163,34 @@ impl Tract {
         }
         self.left = 0;
         self.fresh = false;
+    }
+
+    /// Take the nasal zero for `now` (centre Hz, bandwidth Hz) at once.
+    pub fn jump_nasal_zero(&mut self, now: (f64, f64)) {
+        self.nz = zero_coeffs(now.0, now.1);
+        self.nz_target = self.nz;
+        self.nz_left = 0;
+    }
+
+    /// Ramp the nasal zero to `next` (centre Hz, bandwidth Hz) over the
+    /// next HOP samples.
+    pub fn ramp_nasal_zero(&mut self, next: (f64, f64)) {
+        let t = zero_coeffs(next.0, next.1);
+        let k = 1.0 / HOP as f64;
+        for ((st, &tq), &nq) in self.nz_step.iter_mut().zip(&t).zip(&self.nz) {
+            *st = (tq - nq) * k;
+        }
+        self.nz_target = t;
+        self.nz_left = HOP as u32;
+    }
+
+    /// Centre and bandwidth of the nasal zero at nasality `nas` (0-1) and
+    /// antiresonance `fnz`: the pole's own at 0 (the pair cancels).
+    pub fn nasal_zero_at(nas: f64, fnz: f64) -> (f64, f64) {
+        (
+            NASAL_POLE_HZ + nas * (fnz - NASAL_POLE_HZ),
+            NASAL_POLE_BW_HZ + nas * (NASAL_ZERO_BW_HZ - NASAL_POLE_BW_HZ),
+        )
     }
 
     /// Ramp F1-F3 to `next` over the next HOP samples: sample k of the
@@ -169,6 +233,7 @@ impl Tract {
     /// in registers and the three sections of a group overlap in the
     /// pipeline.
     pub fn cascade_block(&mut self, buf: &mut [f64]) {
+        self.run_nasal(buf);
         let k = (self.left as usize).min(buf.len());
         if k > 0 {
             let (head, tail) = buf.split_at_mut(k);
@@ -192,6 +257,49 @@ impl Tract {
             *x = shelf.tick(*x);
         }
         self.shelf = shelf;
+    }
+
+    /// The nasal zero then the nasal pole over `buf`, the zero's
+    /// coefficients ramping per sample.
+    fn run_nasal(&mut self, buf: &mut [f64]) {
+        let (mut c, mut x) = (self.nz, self.nz_x);
+        let (a, b, cc) = (self.np.a, self.np.b, self.np.c);
+        let (mut y1, mut y2) = (self.np.y1, self.np.y2);
+        let k = (self.nz_left as usize).min(buf.len());
+        let d = self.nz_step;
+        for (i, v) in buf.iter_mut().enumerate() {
+            if i < k {
+                c[0] += d[0];
+                c[1] += d[1];
+                c[2] += d[2];
+            }
+            let u = c[0] * *v + c[1] * x[0] + c[2] * x[1];
+            x[1] = x[0];
+            x[0] = *v;
+            let y = a * u + b * y1 + cc * y2;
+            y2 = y1;
+            y1 = y;
+            *v = y;
+        }
+        self.nz_left -= k as u32;
+        self.nz = if self.nz_left == 0 { self.nz_target } else { c };
+        self.nz_x = x;
+        (self.np.y1, self.np.y2) = (y1, y2);
+    }
+
+    /// Crossfade `buf` toward its low-passed copy: y = (1 - vb) x + vb
+    /// LP(x), vb ramping linearly from `vb.0` to `vb.1` over `buf`. The
+    /// low-pass runs on every sample, so its state is continuous.
+    pub fn voice_bar_block(&mut self, buf: &mut [f64], vb: (f64, f64)) {
+        let n = buf.len().max(1) as f64;
+        let dv = (vb.1 - vb.0) / n;
+        let mut lp = self.bar;
+        for (j, x) in buf.iter_mut().enumerate() {
+            let w = vb.0 + dv * j as f64;
+            let l = lp.tick(*x);
+            *x = (1.0 - w) * *x + w * l;
+        }
+        self.bar = lp;
     }
 
     /// F1-F3 over `buf` with the coefficient ramp advancing each sample.
@@ -276,6 +384,9 @@ impl Tract {
         for r in &mut self.fixed {
             r.reset();
         }
+        self.np.reset();
+        self.nz_x = [0.0; 2];
+        self.bar.reset();
         self.reset_frication();
         self.left = 0;
         self.fresh = true;
@@ -296,6 +407,8 @@ impl Tract {
         for r in &mut self.fixed {
             r.flush_denormals();
         }
+        self.np.flush_denormals();
+        self.bar.flush_denormals();
         self.shelf.flush_denormals();
         self.fric.flush_denormals();
     }
@@ -303,7 +416,8 @@ impl Tract {
     /// DC gain of the cascade with the current coefficients (1 by
     /// construction of the Klatt resonator and the shelf's unity DC).
     pub fn cascade_dc_gain(&self) -> f64 {
-        let mut g = 1.0;
+        let mut g =
+            (self.nz[0] + self.nz[1] + self.nz[2]) * self.np.a / (1.0 - self.np.b - self.np.c);
         for r in self.moving.iter().chain(self.fixed.iter()) {
             g *= r.a / (1.0 - r.b - r.c);
         }
@@ -334,5 +448,86 @@ fn run_group(r: &mut [Resonator], buf: &mut [f64]) {
     }
     for q in 0..3 {
         (r[q].y1, r[q].y2) = (y[q][0], y[q][1]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::params::voice_params;
+    use song::Voice;
+
+    fn tract() -> Tract {
+        Tract::new(&voice_params(Voice::Baritone), 4)
+    }
+
+    /// With the zero at the pole's centre and bandwidth (nasality 0) the
+    /// pair is the identity: an impulse comes out as an impulse.
+    #[test]
+    fn nasal_pair_cancels_at_nas_zero() {
+        let mut t = tract();
+        let mut buf = vec![0.0f64; 8192];
+        buf[0] = 1.0;
+        t.run_nasal(&mut buf);
+        for (i, y) in buf.iter().enumerate() {
+            let want = if i == 0 { 1.0 } else { 0.0 };
+            assert!((y - want).abs() < 1e-9, "sample {i}: {y}");
+        }
+        // The same through a ramp to the same zero (what every non-nasal
+        // frame does), with a noise-like input.
+        let mut t = tract();
+        let x: Vec<f64> = (0..4096)
+            .map(|i| ((i * 7919 % 1009) as f64 / 504.5) - 1.0)
+            .collect();
+        let mut y = x.clone();
+        for blk in y.chunks_mut(HOP) {
+            t.ramp_nasal_zero(Tract::nasal_zero_at(0.0, 1600.0));
+            t.run_nasal(blk);
+        }
+        let worst = x
+            .iter()
+            .zip(&y)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f64::max);
+        assert!(worst < 1e-9, "worst difference {worst}");
+    }
+
+    /// In a nasal the zero cuts its own frequency: n at 1600 Hz.
+    #[test]
+    fn nasal_zero_cuts_its_frequency() {
+        let mut t = tract();
+        t.jump_nasal_zero(Tract::nasal_zero_at(1.0, 1600.0));
+        let w = 2.0 * std::f64::consts::PI * 1600.0 / SR_F;
+        let mut y: Vec<f64> = (0..8192).map(|i| (w * i as f64).sin()).collect();
+        t.run_nasal(&mut y);
+        let rms = (y[4096..].iter().map(|v| v * v).sum::<f64>() / 4096.0).sqrt();
+        assert!(rms < 0.1, "rms {rms} at the zero");
+    }
+
+    fn bar_gain_db(f: f64) -> f64 {
+        let mut t = tract();
+        let w = 2.0 * std::f64::consts::PI * f / SR_F;
+        let n = 8192;
+        let x: Vec<f64> = (0..n).map(|i| (w * i as f64).sin()).collect();
+        let mut y = x.clone();
+        for blk in y.chunks_mut(HOP) {
+            t.voice_bar_block(blk, (1.0, 1.0));
+        }
+        let rms =
+            |v: &[f64]| (v[n / 2..].iter().map(|a| a * a).sum::<f64>() / (n / 2) as f64).sqrt();
+        20.0 * (rms(&y) / rms(&x)).log10()
+    }
+
+    /// At vb = 1 the voice bar passes the murmur and removes the rest.
+    #[test]
+    fn voice_bar_is_a_low_pass() {
+        assert!(bar_gain_db(2000.0) < -25.0, "{}", bar_gain_db(2000.0));
+        assert!(bar_gain_db(150.0).abs() < 2.0, "{}", bar_gain_db(150.0));
+        // At vb = 0 the block is untouched, bit for bit.
+        let mut t = tract();
+        let x: Vec<f64> = (0..HOP).map(|i| (i as f64 * 0.37).sin()).collect();
+        let mut y = x.clone();
+        t.voice_bar_block(&mut y, (0.0, 0.0));
+        assert_eq!(x, y);
     }
 }

@@ -92,8 +92,9 @@ pub enum Segment {
     Vowel { f: Formants3, av: f64 },
     /// Liquid or glide.
     Sonorant { f: Formants3, av: f64 },
-    /// Nasal murmur: voicing with widened bandwidths.
-    Nasal { f: Formants3, av: f64 },
+    /// Nasal murmur: voicing with widened bandwidths and the nasal
+    /// antiresonance `zero` (Hz).
+    Nasal { f: Formants3, av: f64, zero: f64 },
     /// Frication noise at centre `ff`, bandwidth `fbw`, over optional voicing.
     Fricative {
         f: Formants3,
@@ -112,8 +113,10 @@ pub enum Segment {
         fbw: f64,
         ah: f64,
     },
-    /// Oral closure; `av` is the voicing that leaks through (voiced stops).
-    Closure { f: Formants3, av: f64 },
+    /// Oral closure; `av` is the voicing that leaks through (voiced
+    /// stops). `bar` marks a voice bar: the voiced signal is low-passed
+    /// (`tuning::VOICE_BAR_HZ`) while it lasts.
+    Closure { f: Formants3, av: f64, bar: bool },
     /// Audible in-breath before a phrase.
     Breath { f: Formants3 },
     /// Nothing sounds; the formants move toward the next nucleus.
@@ -175,6 +178,21 @@ const BREATH_END: f64 = 0.04;
 const BREATH_PAUSE: f64 = 0.4;
 /// Tract formants of the breath (an open, neutral tract), Hz.
 const BREATH_FORMANTS: Formants3 = [620.0, 1200.0, 2400.0];
+/// Shortest closure of a voiceless stop at any rate, s (or its unweighted
+/// length when that is shorter). The rate weight alone would cut it to
+/// 35 ms in a fast song, and the closure then stays above -30 dB.
+pub const MIN_VL_CLOSURE: f64 = 0.045;
+/// Voicing in a voiced closure, as a share of the note's amplitude.
+pub const CLOSURE_VOICING: f64 = 0.145;
+/// Highest F1 in a voiced closure, Hz: the closed tract's lowest
+/// resonance.
+pub const CLOSED_F1_HZ: f64 = 250.0;
+/// Largest share of the inter-onset interval the onset takes when a
+/// voiceless stop's closure is lengthened to `MIN_VL_CLOSURE`.
+pub const PROTECT_ONSET_SHARE: f64 = 0.40;
+/// Largest share of the vowel-to-coda-end span a coda takes when a
+/// voiceless stop's closure is lengthened to `MIN_VL_CLOSURE`.
+pub const PROTECT_CODA_SHARE: f64 = 0.30;
 /// Segments shorter than this are dropped, s.
 const MIN_SEGMENT: f64 = 1e-4;
 /// Inter-onset interval from which the slow-singing rules hold unchanged, s.
@@ -232,6 +250,8 @@ pub struct NucTarget {
     /// Relative voicing: 1 for vowels, the table value for sonorants and
     /// nasals.
     pub av: f64,
+    /// Nasal antiresonance, Hz (nasals only).
+    pub fnz: f64,
 }
 
 impl NucTarget {
@@ -240,7 +260,11 @@ impl NucTarget {
         match self.kind {
             NucKind::Vowel => Segment::Vowel { f, av },
             NucKind::Sonorant => Segment::Sonorant { f, av },
-            NucKind::Nasal => Segment::Nasal { f, av },
+            NucKind::Nasal => Segment::Nasal {
+                f,
+                av,
+                zero: self.fnz,
+            },
         }
     }
 }
@@ -252,6 +276,7 @@ const DEFAULT_TARGET: NucTarget = NucTarget {
     },
     kind: NucKind::Vowel,
     av: 1.0,
+    fnz: 0.0,
 };
 
 /// The formant targets of a nucleus: a diphthong gives its two vowel
@@ -268,6 +293,7 @@ pub fn nuc_targets(nu: &[Phoneme]) -> Vec<NucTarget> {
                         f,
                         kind: NucKind::Vowel,
                         av: 1.0,
+                        fnz: 0.0,
                     }),
             );
         } else if let Some(f) = vowel_formants(p) {
@@ -275,6 +301,7 @@ pub fn nuc_targets(nu: &[Phoneme]) -> Vec<NucTarget> {
                 f,
                 kind: NucKind::Vowel,
                 av: 1.0,
+                fnz: 0.0,
             });
         } else if let Some(c) = consonant(p) {
             let kind = match c.class {
@@ -286,6 +313,7 @@ pub fn nuc_targets(nu: &[Phoneme]) -> Vec<NucTarget> {
                 f: c.formants,
                 kind,
                 av: c.av,
+                fnz: c.fnz,
             });
         }
     }
@@ -319,6 +347,32 @@ pub fn cons_dur(p: Phoneme, coda: bool) -> f64 {
     }
 }
 
+/// Seconds a voiceless stop's closure falls short of `MIN_VL_CLOSURE` (or
+/// its unweighted length `c.closure * cs` when that is shorter), given the
+/// stop's duration `dur` after rate weight and compression. Zero for every
+/// other consonant.
+fn closure_deficit(ph: Phoneme, cs: f64, dur: f64, coda: bool) -> f64 {
+    match consonant(ph) {
+        Some(c) if c.class == ConsClass::Stop && !c.voiced => {
+            let have = c.closure * dur / cons_dur(ph, coda);
+            (MIN_VL_CLOSURE.min(c.closure * cs) - have).max(0.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// Grant `deficits` (seconds of closure extension), at most `room` in all
+/// (in proportion when it does not fit).
+fn grant(deficits: &[f64], room: f64) -> Vec<f64> {
+    let total: f64 = deficits.iter().sum();
+    let k = if total > room.max(0.0) && total > 0.0 {
+        room.max(0.0) / total
+    } else {
+        1.0
+    };
+    deficits.iter().map(|d| d * k).collect()
+}
+
 /// One note's syllable after splitting, flapping and onset timing.
 #[derive(Clone, Debug)]
 pub struct Syllable {
@@ -329,6 +383,9 @@ pub struct Syllable {
     pub onset_dur: Vec<f64>,
     /// Coda consonant durations, s (voice-scaled, before compression).
     pub coda_dur: Vec<f64>,
+    /// Seconds added after compression to each onset consonant (a
+    /// voiceless stop's closure, held at `MIN_VL_CLOSURE`).
+    pub onset_extra: Vec<f64>,
     /// Onset compression factor, <= 1.
     pub onset_scale: f64,
     /// Time the first onset consonant starts, s (<= `vowel_start`).
@@ -382,6 +439,7 @@ fn syllables_by(
         .enumerate()
         .map(|(k, n)| {
             let (onset, nucleus, coda) = split_ph(&n.phones);
+            let onset_len = onset.len();
             let rate_w = weight(interval(notes, k));
             let onset_rate_w = if k > 0 {
                 weight(n.t0 - notes[k - 1].t0)
@@ -402,6 +460,7 @@ fn syllables_by(
                 coda,
                 onset_dur,
                 coda_dur,
+                onset_extra: vec![0.0; onset_len],
                 onset_scale: 1.0,
                 onset_start: n.t0,
                 vowel_start: n.t0,
@@ -439,8 +498,27 @@ fn syllables_by(
         // Onset consonants of scaled length `dd` span [t0 - lead_in dd,
         // t0 + (1 - lead_in) dd]; the vowel starts at the span end.
         let dd = d * s;
-        syl[k].onset_start = n.t0 - ph.lead_in * dd;
+        // A voiceless stop's compressed closure is lengthened to
+        // `MIN_VL_CLOSURE` while the onset as a whole takes at most
+        // `PROTECT_ONSET_SHARE` of the interval (the cap rises to that for
+        // this note only, and never falls below the rate-weighted share);
+        // the extension starts the onset earlier.
+        let want: Vec<f64> = syl[k]
+            .onset
+            .iter()
+            .zip(&syl[k].onset_dur)
+            .map(|(&q, &dq)| closure_deficit(q, cs, dq * s, false))
+            .collect();
+        let cap = avail.max(if k > 0 {
+            (n.t0 - notes[k - 1].t0) * PROTECT_ONSET_SHARE
+        } else {
+            0.0
+        });
+        syl[k].onset_extra = grant(&want, cap - dd);
+        let ee: f64 = syl[k].onset_extra.iter().sum();
+        syl[k].onset_start = n.t0 - ph.lead_in * dd - ee;
         syl[k].vowel_start = n.t0 + (1.0 - ph.lead_in) * dd;
+        let dd = dd + ee;
         // The vowel may not be pushed past half the note: on a short note
         // (or the first note's long onset) it would start after the note
         // ends. The span keeps length `dd`. Inactive at lead_in 1.0.
@@ -545,9 +623,9 @@ pub fn plan_syllables(
 
         // Onset consonants.
         let mut t = s.onset_start;
-        for (&ph, &d) in s.onset.iter().zip(&s.onset_dur) {
-            let d = d * s.onset_scale;
-            consonant_segments(&mut plan, &sc, ph, t, t + d, vf0, amp, false);
+        for ((&ph, &d), &e) in s.onset.iter().zip(&s.onset_dur).zip(&s.onset_extra) {
+            let d = d * s.onset_scale + e;
+            consonant_segments(&mut plan, &sc, ph, t, t + d, e, vf0, amp, false);
             t += d;
         }
         let locus = s
@@ -576,7 +654,19 @@ pub fn plan_syllables(
         let w = s.rate_w;
         let lim = (coda_end - s.vowel_start) * (CODA_SHARE - FAST_CODA_CUT * w);
         let s2 = if d2 > lim && d2 > 0.0 { lim / d2 } else { 1.0 };
-        let coda_start = coda_end - d2 * s2;
+        // A voiceless coda stop's closure is held at `MIN_VL_CLOSURE` the
+        // same way, within `PROTECT_CODA_SHARE` of the span; the time
+        // comes from the vowel.
+        let want: Vec<f64> = s
+            .coda
+            .iter()
+            .zip(&s.coda_dur)
+            .map(|(&q, &dq)| closure_deficit(q, p.cons_scale, dq * s2, true))
+            .collect();
+        let span = coda_end - s.vowel_start;
+        let coda_cap = lim.max(span * PROTECT_CODA_SHARE);
+        let coda_extra = grant(&want, coda_cap - d2 * s2);
+        let coda_start = coda_end - d2 * s2 - coda_extra.iter().sum::<f64>();
 
         // CV transition from the locus.
         let vlen = coda_start - s.vowel_start;
@@ -656,9 +746,9 @@ pub fn plan_syllables(
 
         // Coda consonants.
         t = coda_start;
-        for (&ph, &d) in s.coda.iter().zip(&s.coda_dur) {
-            let d = d * s2;
-            consonant_segments(&mut plan, &sc, ph, t, t + d, vfl, amp, true);
+        for ((&ph, &d), &e) in s.coda.iter().zip(&s.coda_dur).zip(&coda_extra) {
+            let d = d * s2 + e;
+            consonant_segments(&mut plan, &sc, ph, t, t + d, e, vfl, amp, true);
             t += d;
         }
 
@@ -688,6 +778,8 @@ pub fn plan_syllables(
 }
 
 /// Segments of consonant `ph` over t0..t1 next to vowel `vf` (scaled).
+/// `extra` seconds of the span (after compression) belong to the closure
+/// of a voiceless stop (`closure_extra`).
 #[allow(clippy::too_many_arguments)]
 fn consonant_segments(
     plan: &mut Plan,
@@ -695,6 +787,7 @@ fn consonant_segments(
     ph: Phoneme,
     t0: f64,
     t1: f64,
+    extra: f64,
     vf: Formants3,
     amp: f64,
     coda: bool,
@@ -708,7 +801,7 @@ fn consonant_segments(
             let f = [0, 1, 2].map(|i| t[i] * 0.75 + vf[i] * 0.25);
             let av = amp * c.av;
             let seg = if c.class == ConsClass::Nasal {
-                Segment::Nasal { f, av }
+                Segment::Nasal { f, av, zero: c.fnz }
             } else {
                 Segment::Sonorant { f, av }
             };
@@ -743,10 +836,17 @@ fn consonant_segments(
             let cf = [0, 1, 2].map(|i| loc[i] * 0.6 + vf[i] * 0.4);
             // Closure and (affricate) burst keep their nominal share of the
             // consonant after voice scaling and compression.
-            let k = (t1 - t0) / cons_dur(ph, coda);
-            let cl = t0 + c.closure * k;
-            let av = if c.voiced { amp * 0.1 } else { 0.0 };
-            plan.put(t0, cl, Segment::Closure { f: cf, av });
+            let k = (t1 - t0 - extra) / cons_dur(ph, coda);
+            let cl = t0 + c.closure * k + extra;
+            // A voiced closure (not a flap) is a voice bar: F1 at the
+            // closed tract's resonance, the signal low-passed.
+            let bar = c.voiced && !c.flap;
+            let mut cc = cf;
+            if bar {
+                cc[0] = cc[0].min(CLOSED_F1_HZ);
+            }
+            let av = if c.voiced { amp * CLOSURE_VOICING } else { 0.0 };
+            plan.put(t0, cl, Segment::Closure { f: cc, av, bar });
             if c.class == ConsClass::Stop {
                 let ff = match c.locus {
                     Locus::At(_) => c.ff,
@@ -1022,16 +1122,44 @@ mod tests {
         );
     }
 
+    /// On a fast note a voiceless stop keeps a closure of `MIN_VL_CLOSURE`
+    /// when the onset share has room; at rate weight 0 nothing changes.
+    #[test]
+    fn fast_voiceless_closure_keeps_its_floor() {
+        let settings = VoiceSettings::default();
+        let p = settings.apply(voice_params(Voice::Baritone));
+        let closure_of = |gap: f64| {
+            let notes = [
+                note(0.5, 0.5 + gap, &["aa"], true),
+                note(0.5 + gap, 0.5 + 2.0 * gap, &["t", "aa"], true),
+            ];
+            let plan = plan_segments(&notes, &p, &settings);
+            plan.iter()
+                .find(|(sp, g)| matches!(g, Segment::Closure { .. }) && sp.t0 > 0.5)
+                .map(|(sp, _)| sp.len())
+                .unwrap_or(0.0)
+        };
+        // Interval 0.25 s: rate weight 0.7; the cut closure is 40.8 ms.
+        assert!((closure_of(0.25) - MIN_VL_CLOSURE).abs() < 1e-9);
+        // Interval 0.5 s: weight 0, the table closure times the scale.
+        assert!((closure_of(0.5) - 0.045 * p.cons_scale).abs() < 1e-9);
+    }
+
     /// Onsets take at most 45% of the inter-onset interval on slow notes,
-    /// 28% on fast ones (a 120 ms interval has rate weight 1).
+    /// 28% on fast ones (a 120 ms interval has rate weight 1); an onset
+    /// with a voiceless stop may take 40% when its closure needs the time.
     #[test]
     fn onset_compression() {
         let p = voice_params(Voice::Soprano);
         let share = PhrasingParams::default().onset_share;
-        for (gap, want) in [(0.12, share - FAST_ONSET_CUT), (0.40, share)] {
+        for (gap, want, onset) in [
+            (0.12, share - FAST_ONSET_CUT, ["s", "z", "r", "aa"]),
+            (0.12, PROTECT_ONSET_SHARE, ["s", "t", "r", "aa"]),
+            (0.40, share, ["s", "t", "r", "aa"]),
+        ] {
             let notes = [
                 note(0.5, 0.6, &["aa"], true),
-                note(0.5 + gap, 0.6 + gap, &["s", "t", "r", "aa"], true),
+                note(0.5 + gap, 0.6 + gap, &onset, true),
             ];
             let syl = syllables(&notes, &p, &PhrasingParams::default());
             let used = notes[1].t0 - syl[1].onset_start;
@@ -1097,7 +1225,7 @@ mod tests {
 
     /// At a 0.2 s interval a stop-onset, nasal-coda syllable keeps its
     /// onset and coda within the fast shares and the vowel at least 55% of
-    /// the interval.
+    /// the interval (half, with the closure floor).
     #[test]
     fn fast_notes_keep_the_vowel() {
         let st = VoiceSettings::default();
@@ -1117,7 +1245,8 @@ mod tests {
                 assert_eq!(syl[k].rate_w, 1.0);
                 let onset = notes[k].t0 - syl[k].onset_start;
                 let on_share = st.phrasing.onset_share - FAST_ONSET_CUT;
-                assert!(onset <= 0.2 * on_share + 1e-12, "{voice:?} onset {onset}");
+                let on_cap = on_share.max(PROTECT_ONSET_SHARE);
+                assert!(onset <= 0.2 * on_cap + 1e-12, "{voice:?} onset {onset}");
                 let coda: f64 = plan
                     .iter()
                     .filter(|(sp, g)| {
@@ -1127,7 +1256,10 @@ mod tests {
                     .sum();
                 let coda_room = syl[k + 1].onset_start - syl[k].vowel_start;
                 assert!(
-                    coda > 0.0 && coda <= coda_room * (CODA_SHARE - FAST_CODA_CUT) + 1e-12,
+                    coda > 0.0
+                        && coda
+                            <= coda_room * (CODA_SHARE - FAST_CODA_CUT).max(PROTECT_CODA_SHARE)
+                                + 1e-12,
                     "{voice:?} coda {coda}"
                 );
                 let cons: f64 = plan
@@ -1136,7 +1268,9 @@ mod tests {
                     .map(|(sp, _)| (sp.t1.min(t1) - sp.t0.max(t0)).max(0.0))
                     .sum();
                 let vowel = (t1 - t0) - cons;
-                assert!(vowel >= 0.55 * 0.2, "{voice:?} note {k} vowel {vowel}");
+                // 55% before the closure floor; its raised onset and coda caps
+                // (0.40 and 0.30) leave at least half the interval.
+                assert!(vowel >= 0.50 * 0.2, "{voice:?} note {k} vowel {vowel}");
             }
         }
     }

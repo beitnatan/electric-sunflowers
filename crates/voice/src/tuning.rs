@@ -54,3 +54,19 @@ pub const NAS_B3_HZ: f64 = 220.0;
 /// valleys.
 pub const SHELF_HZ: f64 = 5200.0;
 pub const SHELF_Q: f64 = 0.7;
+
+/// Voice bar (a voiced stop's closure): the voiced signal is crossfaded to
+/// a copy low-passed by a second-order section (RBJ, Q 0.7) at this corner,
+/// Hz. With the tract closed, sound reaches the air only through the walls
+/// of the throat and cheeks, which pass little above about 400 Hz.
+pub const VOICE_BAR_HZ: f64 = 350.0;
+pub const VOICE_BAR_Q: f64 = 0.7;
+
+/// Nasal pole of the cascade (Klatt 1980, RNP), Hz and bandwidth Hz. The
+/// nasal zero (RNZ) sits at the same centre and bandwidth outside nasals,
+/// so the pair cancels; in a nasal the zero moves to the nasal's
+/// antiresonance (`phoneme::Consonant::fnz`) with bandwidth
+/// `NASAL_ZERO_BW_HZ`.
+pub const NASAL_POLE_HZ: f64 = 270.0;
+pub const NASAL_POLE_BW_HZ: f64 = 100.0;
+pub const NASAL_ZERO_BW_HZ: f64 = 200.0;
