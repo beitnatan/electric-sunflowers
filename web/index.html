@@ -136,22 +136,27 @@
   /* stage */
   .stage { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:1rem; box-shadow:0 18px 50px -24px var(--shadow); }
   @media (min-width: 64rem) { .stage { position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow:auto; } }
-  .stage-head { display:flex; flex-direction:column; align-items:center; gap:.75rem; text-align:center; }
-  .emblem { width:min(100%, 13.5rem); aspect-ratio:1; filter:drop-shadow(0 0 22px color-mix(in srgb, var(--glow) 35%, transparent)); transition:filter .4s; }
-  .emblem svg { display:block; width:100%; height:100%; }
-  .stage.busy .emblem { filter:drop-shadow(0 0 30px color-mix(in srgb, var(--glow) 60%, transparent)); }
-  .stage.busy .rot { animation:turn 36s linear infinite; }
+  .stage-head { display:flex; flex-direction:column; gap:.75rem; }
+  .meterflower { flex:none; width:4rem; height:4rem; filter:drop-shadow(0 0 10px color-mix(in srgb, var(--glow) 35%, transparent)); transition:filter .4s; }
+  .meterflower svg { display:block; width:100%; height:100%; }
+  .app.busy .meterflower { filter:drop-shadow(0 0 16px color-mix(in srgb, var(--glow) 70%, transparent)); }
+  .app.busy .meterflower .rot { animation:turn 14s linear infinite; }
+  .mtext { flex:1; min-width:0; }
   .rot { transform-box:fill-box; transform-origin:center; }
   @keyframes turn { to { transform:rotate(360deg); } }
   .pf { transition:opacity .35s; } .pf:not(.on) { opacity:.16; }
   .stage-info { min-width:0; width:100%; }
   .eyebrow { font-size:.68rem; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); }
-  .songname { font-size:1.2rem; font-weight:700; line-height:1.25; overflow-wrap:anywhere; text-wrap:balance; }
+  .songname { font-size:1.45rem; font-weight:700; line-height:1.2; letter-spacing:-.01em; overflow-wrap:anywhere; text-wrap:balance; margin-top:.1rem; }
+  .facts { display:flex; flex-wrap:wrap; gap:.35rem; margin:.6rem 0 0; }
+  .facts span { font:.72rem ui-monospace, Menlo, Consolas, monospace; background:var(--chip); color:var(--dim); border-radius:4px; padding:.15rem .45rem; }
+  .songnote { margin:.7rem 0 0; font-size:.85rem; color:var(--dim); font-style:italic; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .songnote:empty { display:none; }
   #est { margin:.2rem 0 0; font-size:.8rem; color:var(--dim); }
   #est.warn { color:var(--bad); }
   #go { width:100%; margin-top:.9rem; }
-  #status { display:none; margin-top:.8rem; font-size:.8rem; color:var(--dim); }
-  #status.on { display:block; }
+  #status { display:none; margin-top:.9rem; font-size:.8rem; color:var(--dim); }
+  #status.on { display:flex; align-items:center; gap:.85rem; }
   #line1 b { color:var(--text); font-variant-numeric:tabular-nums; }
   .bar { height:4px; background:var(--line); border-radius:2px; margin-top:.4rem; overflow:hidden; }
   .bar > i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--petal), var(--accent-hi)); transition:width .25s; }
@@ -176,16 +181,17 @@
   /* narrow: the stage becomes a dock at the bottom of the screen */
   @media (max-width: 63.99rem) {
     .stage { position:sticky; bottom:0; z-index:5; border-radius:12px 12px 0 0; padding:.7rem .85rem calc(.7rem + env(safe-area-inset-bottom, 0px)); margin-inline:-.25rem; }
-    .stage-head { flex-direction:row; text-align:left; gap:.75rem; }
-    .emblem { width:3.4rem; flex:none; }
+    .stage-head { flex-direction:row; align-items:center; gap:.75rem; }
     .stage-info { flex:1; }
     .songname { font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .facts, .songnote, .eyebrow { display:none; }
+    .meterflower { width:3rem; height:3rem; }
     #go { width:auto; margin:0; flex:none; padding:.55rem 1.1rem; }
     #player { max-height:50vh; overflow:auto; }
   }
   footer { margin-top:2.5rem; max-width:62ch; }
   footer small { font-size:.78rem; }
-  @media (prefers-reduced-motion: reduce) { .stage.busy .rot { animation:none; } .pf, .bar > i { transition:none; } }
+  @media (prefers-reduced-motion: reduce) { .app.busy .meterflower .rot { animation:none; } .pf, .bar > i { transition:none; } }
 </style>
 </head>
 <body>
@@ -256,16 +262,18 @@
 
     <aside class="stage" id="stage" aria-label="Player">
       <div class="stage-head">
-        <div id="emblem" class="emblem" aria-hidden="true"></div>
         <div class="stage-info">
           <div class="eyebrow">Song</div>
           <div id="songname" class="songname">Untitled</div>
+          <div id="facts" class="facts"></div>
+          <p id="songnote" class="songnote"></p>
           <p id="est">Loading the engine...</p>
         </div>
         <button id="go" class="primary" type="button" disabled>Render</button>
       </div>
       <div id="status" role="status" aria-live="polite">
-        <div id="line1"></div><div id="line2"></div><div class="bar"><i id="fill"></i></div>
+        <span id="meter" class="meterflower" aria-hidden="true"></span>
+        <div class="mtext"><div id="line1"></div><div id="line2"></div><div class="bar"><i id="fill"></i></div></div>
       </div>
       <div id="err"></div>
       <details id="player" open>
@@ -350,8 +358,8 @@ function flowerSVG(p) {
 </defs><g class="rot">${back}${front}<circle r="36" fill="url(#${p}d)"/>${dots}</g></svg>`;
 }
 $('mark').innerHTML = flowerSVG('m');
-$('emblem').innerHTML = flowerSVG('e');
-function lit(n) { $('emblem').querySelectorAll('.pf').forEach((el, i) => el.classList.toggle('on', i < n)); }
+$('meter').innerHTML = flowerSVG('p');
+function lit(n) { $('meter').querySelectorAll('.pf').forEach((el, i) => el.classList.toggle('on', i < n)); }
 
 // ---- Small DOM helper ----
 function h(tag, attrs, ...kids) {
@@ -381,6 +389,9 @@ const openSecs = new WeakSet();
 const text = () => JSON.stringify(song, null, 1);
 function changed(opts = {}) {
   $('songname').textContent = (song && song.title) || 'Untitled';
+  $('songnote').textContent = (song && song.note) || '';
+  $('facts').textContent = '';
+  for (const f of [song && song.key && `${song.key} ${song.mode || ''}`.trim(), song && song.meter, song && song.tempo && song.tempo + ' bpm', song && song.voice]) if (f) $('facts').append(h('span', { text: f }));
   lyricPreview();
   if (!opts.fromJson) { $('json').value = text(); setJsonState(true); }
   clearTimeout(saveTimer);
@@ -937,7 +948,7 @@ function probe() {
   probeTimer = setTimeout(() => ask('probe'), 250);
 }
 
-function setStatus(on, idle) { $('status').classList.toggle('on', on); $('status').classList.toggle('idle', !!idle); $('stage').classList.toggle('busy', on && !idle); }
+function setStatus(on, idle) { $('status').classList.toggle('on', on); $('status').classList.toggle('idle', !!idle); document.querySelector('.app').classList.toggle('busy', on && !idle); }
 function elapsed() { return ((performance.now() - t0) / 1000).toFixed(1); }
 function paint(done, total, mem) {
   $('line1').innerHTML = `Rendering: <b>${done}/${total}</b> parts done, <b>${elapsed()} s</b>`;
