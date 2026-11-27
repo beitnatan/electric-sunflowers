@@ -134,3 +134,24 @@ After the tenor, alto and soprano fits (design 5.1-5.2): intelligibility at high
 
 ### 5.10 Composition
 The rhythm model shortened stressed syllables in a slow waltz ("mile" 0.31 s in `songs/center-pivot.json`, where the tune gives a stress per bar). A stressed syllable on a downbeat should not be shorter than the unstressed one that follows. This is in `compose` (the rhythm DP), not in the sound models.
+
+## 6. Singing measurement harness
+
+The scripts that measure the voice against real singers. Paths come from the environment: REPO, SCRATCH, PYTHON and SINGMOS_DIR (see the headers of the two shell scripts).
+
+| script | what it measures | reference |
+| --- | --- | --- |
+| tools/wavread.py | WAV reader (rd) and 1/12-octave LTAS, used by the others | none |
+| tools/vowel_open_h12.py | H1-H2 and H1-H4 of sung vowels; open-vowel summary | vocadito male, Zenodo 5578807, CC BY 4.0 |
+| tools/harmonic_prominence.py | harmonic peak excess over trend, slope, by f0 band | vocadito male, Zenodo 5578807, CC BY 4.0 |
+| tools/vibrato_vocalset.py | vibrato rate, extent and wobble of long tones | VocalSet, Zenodo 1193957, CC BY 4.0 |
+| tools/vibrato_engine.py | vibrato of notes in engine renders, or of vocadito | vocadito male, Zenodo 5578807, CC BY 4.0 |
+| tools/vibrato_vocadito.py | vibrato of stable segments in vocadito F0 annotations | vocadito male, Zenodo 5578807, CC BY 4.0 |
+| tools/words_lost.py | words substituted or deleted per reference word | lyric, via tools/wer_song.py --show |
+| tools/eval_artic.sh | articulation report for two songs | the parts below |
+| tools/run_voice_fit.sh | one voice fit rendered and measured | vocadito male, tools/targets/voice_vocadito_male.json |
+| tools/singmos_score.py | SingMOS-Pro naturalness per 10 s window | vocadito singers (calibration 3.2 to 4.7) |
+| tools/aes_compare.py | Audiobox Aesthetics scores and paired differences | none (model: facebook/audiobox-aesthetics, CC BY 4.0) |
+| tools/consonant_depth.py | stop and nasal depth against the neighbouring vowel | none |
+| tools/consonant_survival.py | word-initial consonants the recogniser keeps | tools/wer_song.py --show output |
+| tools/voice_target.py | harmonic envelope and open H1-H2 against vocadito | vocadito male, tools/targets/ |
