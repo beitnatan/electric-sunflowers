@@ -21,7 +21,7 @@ The singer is a formant voice on a Liljencrants-Fant glottal source. The band is
     sunflower sheet song.json --seed 1            # chord sheet, chords over lyrics
     sunflower write "..." --style bluegrass --voice alto --seed 7
 
-Rendering uses every core; `RAYON_NUM_THREADS=1` renders on one with identical output. The demo song (3 min) renders in about 2 s on 12 cores.
+Rendering uses every core; `RAYON_NUM_THREADS=1` renders on one with identical output. The demo song (3 min) is 3 minutes of audio; its render time depends on the machine and load, so the measured figures are in `docs/engine-design.md` section 10.
 
 The build needs no network: dependencies are vendored in `vendor/`. It links against the system ALSA and X11/GL libraries for the studio.
 
@@ -37,10 +37,13 @@ The build needs no network: dependencies are vendored in `vendor/`. It links aga
     crates/engine       tracks, sparse stems, the render task graph, the mixer
     crates/export       Ogg Vorbis, FLAC, WAV
     crates/sunflower    the command-line tool
-    crates/notation     sheet-music engraving to SVG (in progress)
-    crates/studio       native desktop app: lyrics with chords, score, playback (in progress)
+    crates/notation     lead-sheet engraving to SVG
+    crates/studio       native desktop app: lyrics with chords, sheet music, playback, the mixer
+    crates/settings     user settings file ($XDG_CONFIG_HOME/electric-sunflowers/config.toml)
+    crates/webrender    browser entry for the engine (wasm build; see web/README.md)
     crates/soundgate    measurement for the sound gate
-    docs/               engine design; the rewrite plan
+    docs/               engine design; the rewrite plan; the manual (docs/manual/)
+    web/                the browser build of the engine (scripts/build-web.sh)
     src/, tests/, tools/  the original JavaScript prototype (a browser page) and its measurement tools
 
 ## Testing

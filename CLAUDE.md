@@ -32,12 +32,14 @@ Read this before changing anything. It records what the system is, how to work i
     crates/engine         arranger-pass view and edits (pure), tracks and channel strips, sparse stems, one rayon task graph, block mixer with vocal ducking, song sheet
     crates/export         Ogg Vorbis (default), FLAC, WAV with tags
     crates/notation       lead-sheet engraving to SVG with Bravura glyphs, per-note times
-    crates/sunflower      CLI: demo, render, write, sheet, arrange, play, styles
+    crates/sunflower      CLI: demo, render, write, rearrange, sheet, arrange, play, styles
     crates/studio         desktop app (eframe, X11): library, lyrics with chords, sheet music, Ogg playback, new-song form
     crates/settings       user settings file (in progress)
     crates/soundgate      measurement for the sound gate; depends on no engine crate
+    crates/webrender      browser entry for the engine (wasm, C interface); see web/README.md
     docs/                 engine-design.md (the design as built, every algorithm and source); rewrite-plan.json; features-2*.md/json (next batch)
     scripts/gate.sh       the sound gate
+    web/                  the browser build (index.html, worker.js, sunflower.js, smoke test); scripts/build-web.sh
     src/, tests/, tools/  the JavaScript prototype (a claude.ai page) and its measurement tools
     vendor/               vendored crates
 

@@ -35,7 +35,7 @@ Files that other programs put in the folder, such as a `sunflower render` output
 The first entry, **Demo (built-in)**, is "Every Harbor", a song compiled into the program. Click it.
 
 1. The status line reads "Composing the melody" while the studio sets the text to rhythm, composes the melody and lays out the sheet.
-2. The demo has no audio yet, so the studio renders it at once. A progress bar steps through Composing, Rendering (tracks done of total), Mixing, Encoding Ogg Vorbis and Writing sidecars, with the elapsed seconds. The render uses every core; on a 12-core machine the demo takes about 5 s.
+2. The demo has no audio yet, so the studio renders it at once. A progress bar steps through Composing, Rendering (tracks done of total), Mixing, Encoding Ogg Vorbis and Writing sidecars, with the elapsed seconds. The render uses every core. Render time depends on the machine and its load; the measured figures are in `docs/engine-design.md` section 10.
 3. The render writes `sunflower-demo.json`, `.ogg`, `.render.json` and `.sheet.json` into the library. The next launch plays it without rendering.
 
 Press **Play**, or the space bar. The lit line and syllable follow the voice.

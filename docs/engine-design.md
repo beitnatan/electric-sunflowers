@@ -1,6 +1,6 @@
 # Engine design (Rust rewrite)
 
-Status: implemented on branch `rust-cleanup` (base commit 29c5c08; waves 0-5 of section 13). Deviations from the text as first written:
+Status: implemented (waves 0-5 of section 13). The work was done on the branch `rust-cleanup` (base commit 29c5c08), which this repository does not contain; the rewrite's commits are in trunk history from 50ade40. Deviations from the text as first written:
 
 - FFT: `dsp::fft` wraps `realfft`/`rustfft` (section 5.10) instead of a hand-written Stockham transform.
 - Memory: peak RSS for the demo is above the section 10 aims (measured figures in section 10). Speed meets them.
@@ -43,13 +43,17 @@ engine       tracks and strips, stems, render task graph, mixer
 export       Ogg Vorbis, FLAC, WAV writers
 songwriter   styles and forms, prompt, schema use, Claude clients
 sunflower    CLI
+notation     lead-sheet engraving to SVG (song, compose, arrange)
+studio       desktop app (eframe), library, playback, mixer
+settings     user settings file (`$XDG_CONFIG_HOME/electric-sunflowers/config.toml`)
+webrender    browser entry for the engine (wasm, C interface)
 soundgate    measurement tool (analysis only; depends on no engine crate)
 ```
 
 Dependency graph (arrows point at dependencies):
 
 ```
-sunflower -> engine, songwriter, export, song, sfcore, rayon
+sunflower -> engine, songwriter, export, settings, song, sfcore, rayon, clap, anyhow
 engine    -> arrange, compose, voice, instruments, dsp, song, sfcore
 arrange   -> compose, song, sfcore            (no dsp: arrangement produces events, not audio)
 voice     -> dsp, song, sfcore
@@ -58,7 +62,11 @@ compose   -> song, sfcore
 songwriter -> song, sfcore, ureq, tempfile
 dsp       -> sfcore, rayon, realfft, rustfft
 export    -> sfcore, vorbis_rs, flacenc, rayon
-soundgate -> hound, serde_json                (own FFT; the instrument must not change with the thing measured)
+soundgate -> hound, serde_json, clap          (own FFT; the instrument must not change with the thing measured)
+notation  -> song, compose, arrange
+settings  -> song, songwriter, serde, toml
+studio    -> engine, compose, arrange, export, songwriter, notation, settings, eframe, rodio
+webrender -> engine, song, sfcore
 ```
 
 Changes against today, and why:

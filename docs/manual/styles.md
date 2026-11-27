@@ -9,7 +9,7 @@ description: The 22 styles, with their meters, tempo ranges, modes, bands, break
 
 A style fixes what Claude is asked to write and how the band plays it. When a song is written, the seed picks one of the style's meters, then one of its forms and one of its modes; the tempo range is the one for that meter. When a song is rendered with a style, the style's guitar pattern, drums, band parts and break instrument replace the song's own, and the tempo is clamped to the style's range for the song's meter, widened by 10% each way (a cowboy song in 3/4 at 120 bpm plays at 114).
 
-The tables are generated from `crates/songwriter/src/styles.rs`. The key is what `--style` takes; the name is what the New song form lists.
+The tables are maintained by hand against `crates/songwriter/src/styles.rs`; when a style changes, update its row here. The key is what `--style` takes; the name is what the New song form lists.
 
 The lead guitar and the singer play in every style. "Other parts" are the parts added to them: the bass; a second (harmony) guitar; harp; violin; the choir (four parts of three singers each, on the vowel /aa/, over repeated choruses, bridges and outros); harmonies (a second voice a third to a sixth from the melody in the choruses); doubles (two more takes of the melody in repeated choruses, panned left and right). In a form without a chorus, the verses after the first count as choruses here. Drums are none, brushes, soft or full. The break lead takes the tune in instrumental breaks; "violin and guitar" trade it. Tempos are in felt beats per minute: in 6/8, dotted quarters.
 
@@ -27,7 +27,7 @@ The lead guitar and the singer play in every style. "Other parts" are the parts 
 | `broadside` | English broadside ballad | 6/8 52-68; 3/4 80-104; 4/4 76-98 | major, dorian, mixolydian | fingerpick | none | violin | violin |
 | `scottish` | Scottish ballad | 3/4 66-88; 4/4 60-80 | dorian, mixolydian, minor | arpeggio | none | bass, harp, violin | violin |
 | `irishair` | Irish air | 3/4 60-80; 6/8 44-60 | major, dorian, mixolydian | arpeggio | none | bass, harp, violin | violin |
-| `irishpub` | Irish drinking song | 6/8 68-84; 4/4 104-128 | major, mixolydian | strum | soft | bass, violin, choir, harmonies, doubles | violin |
+| `irishpub` | Irish drinking song | 6/8 96-116; 4/4 120-144 | major, mixolydian | strum | full | bass, harmony guitar, violin, choir, harmonies, doubles | violin |
 | `welsh` | Welsh hymn tune | 4/4 60-78; 3/4 66-84 | major | arpeggio | none | bass, harp, choir, harmonies | guitar |
 | `breton` | Breton dance song | 4/4 104-128; 6/8 68-84 | dorian, minor | strum | soft | bass, violin, harmonies | violin |
 | `blues` | Delta and Piedmont blues | 4/4 70-100 | mixolydian, major | travis | brushes | bass, harmony guitar | guitar |
