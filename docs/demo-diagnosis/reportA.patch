@@ -1,0 +1,125 @@
+diff --git a/crates/voice/src/articulation.rs b/crates/voice/src/articulation.rs
+index b11c3261..61db372f 100644
+--- a/crates/voice/src/articulation.rs
++++ b/crates/voice/src/articulation.rs
+@@ -67,6 +67,12 @@ use crate::phrasing::PhrasingParams;
+ use crate::synth::VoiceSettings;
+ use crate::tuning::BURST_GAIN;
+ 
++
++/// SCRATCH: environment overrides for analysis.
++pub fn knob(name: &str) -> Option<Vec<f64>> {
++    std::env::var(name).ok().map(|v| v.split(',').filter_map(|x| x.trim().parse().ok()).collect())
++}
++
+ /// F1-F3 in Hz.
+ pub type Formants3 = [f64; 3];
+ 
+@@ -343,6 +349,8 @@ pub fn cons_dur(p: Phoneme, coda: bool) -> f64 {
+         }
+         ConsClass::Affricate => c.closure + AFFRICATE_BURST + c.fric_dur,
+         ConsClass::Nasal if coda => CODA_NASAL,
++        _ if p == Phoneme::F && knob("SF_FDUR").is_some() => knob("SF_FDUR").unwrap()[0],
++        _ if p == Phoneme::R && knob("SF_RDUR").is_some() => knob("SF_RDUR").unwrap()[0],
+         _ => c.dur,
+     }
+ }
+@@ -401,6 +409,8 @@ pub struct Syllable {
+     /// Rate weight of the interval the onset sits in (onset durations and
+     /// share).
+     pub onset_rate_w: f64,
++    /// SCRATCH: the final coda stop is released (false: unreleased before a consonant onset).
++    pub coda_released: bool,
+ }
+ 
+ /// Split `ph` into onset consonants, nucleus (first vowel through last
+@@ -467,10 +477,25 @@ fn syllables_by(
+                 targets,
+                 rate_w,
+                 onset_rate_w,
++                coda_released: true,
+             }
+         })
+         .collect();
+ 
++    if let Some(k) = knob("SF_UNREL") {
++        for i in 0..notes.len().saturating_sub(1) {
++            let nn = &notes[i + 1];
++            let last_stop = syl[i].coda.last().and_then(|&q| consonant(q)).is_some_and(|c| c.class == ConsClass::Stop);
++            if last_stop && !nn.phrase_start && nn.t0 - notes[i].t1 < 0.03 && !syl[i + 1].onset.is_empty() {
++                syl[i].coda_released = false;
++                let j = syl[i].coda.len() - 1;
++                let q = syl[i].coda[j];
++                let c = consonant(q).unwrap();
++                syl[i].coda_dur[j] *= k[0] * c.closure / cons_dur(q, true);
++            }
++        }
++    }
++
+     for k in 1..notes.len() {
+         let (n, prev) = (&notes[k], &notes[k - 1]);
+         let single_td = matches!(syl[k].onset.as_slice(), [Phoneme::T | Phoneme::D]);
+@@ -661,7 +686,8 @@ pub fn plan_syllables(
+             .coda
+             .iter()
+             .zip(&s.coda_dur)
+-            .map(|(&q, &dq)| closure_deficit(q, p.cons_scale, dq * s2, true))
++            .enumerate()
++            .map(|(ci, (&q, &dq))| if ci + 1 == s.coda.len() && !s.coda_released { 0.0 } else { closure_deficit(q, p.cons_scale, dq * s2, true) })
+             .collect();
+         let span = coda_end - s.vowel_start;
+         let coda_cap = lim.max(span * PROTECT_CODA_SHARE);
+@@ -746,8 +772,21 @@ pub fn plan_syllables(
+ 
+         // Coda consonants.
+         t = coda_start;
+-        for ((&ph, &d), &e) in s.coda.iter().zip(&s.coda_dur).zip(&coda_extra) {
++        let ncoda = s.coda.len();
++        for (ci, ((&ph, &d), &e)) in s.coda.iter().zip(&s.coda_dur).zip(&coda_extra).enumerate() {
+             let d = d * s2 + e;
++            if ci + 1 == ncoda && !s.coda_released {
++                // SCRATCH: unreleased stop: closure only.
++                let c = consonant(ph).unwrap();
++                let loc = sc.locus(c, vfl);
++                let mut cc = [0, 1, 2].map(|i| loc[i] * 0.6 + vfl[i] * 0.4);
++                let bar = c.voiced && !c.flap;
++                if bar { cc[0] = cc[0].min(CLOSED_F1_HZ); }
++                let av = if c.voiced { amp * CLOSURE_VOICING } else { 0.0 };
++                plan.put(t, t + d, Segment::Closure { f: cc, av, bar });
++                t += d;
++                continue;
++            }
+             consonant_segments(&mut plan, &sc, ph, t, t + d, e, vfl, amp, true);
+             t += d;
+         }
+@@ -797,8 +836,13 @@ fn consonant_segments(
+     };
+     match c.class {
+         ConsClass::Sonorant | ConsClass::Nasal => {
+-            let t = sc.of(c.formants);
+-            let f = [0, 1, 2].map(|i| t[i] * 0.75 + vf[i] * 0.25);
++            let mut tf = c.formants;
++            let mut pull = 0.25;
++            if ph == Phoneme::R {
++                if let Some(k) = knob("SF_R") { tf = [k[0], k[1], k[2]]; pull = k[3]; }
++            }
++            let t = sc.of(tf);
++            let f = [0, 1, 2].map(|i| t[i] * (1.0 - pull) + vf[i] * pull);
+             let av = amp * c.av;
+             let seg = if c.class == ConsClass::Nasal {
+                 Segment::Nasal { f, av, zero: c.fnz }
+@@ -808,6 +852,14 @@ fn consonant_segments(
+             plan.put(t0, t1, seg);
+         }
+         ConsClass::Fricative => {
++            let mut c = *c;
++            if ph == Phoneme::F {
++                if let Some(k) = knob("SF_F") { c.ff = k[0]; c.bw = k[1]; c.af = k[2]; }
++            }
++            if ph == Phoneme::V {
++                if let Some(k) = knob("SF_V") { c.ff = k[0]; c.bw = k[1]; c.af = k[2]; }
++            }
++            let c = &c;
+             let av = if c.voiced { amp * c.vv } else { 0.0 };
+             let loc = sc.locus(c, vf);
+             plan.put(
