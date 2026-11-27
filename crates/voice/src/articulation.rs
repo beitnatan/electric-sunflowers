@@ -649,7 +649,18 @@ pub fn plan_syllables(
         let mut t = s.onset_start;
         for ((&ph, &d), &e) in s.onset.iter().zip(&s.onset_dur).zip(&s.onset_extra) {
             let d = d * s.onset_scale + e;
-            consonant_segments(&mut plan, &sc, ph, t, t + d, e, vf0, amp, false, !n.phrase_start);
+            consonant_segments(
+                &mut plan,
+                &sc,
+                ph,
+                t,
+                t + d,
+                e,
+                vf0,
+                amp,
+                false,
+                !n.phrase_start,
+            );
             t += d;
         }
         let locus = s
@@ -820,7 +831,11 @@ pub fn plan_syllables(
             let phrase = next.is_some_and(|(nn, _)| nn.phrase_start);
             let hold = next.is_some() && !phrase;
             if phrase && next_on - coda_end > BREATH_PAUSE && settings.breath_pauses {
-                plan.put(coda_end, next_on - BREATH_START, Segment::Silence { f: nf, hold });
+                plan.put(
+                    coda_end,
+                    next_on - BREATH_START,
+                    Segment::Silence { f: nf, hold },
+                );
                 plan.put(
                     next_on - BREATH_START,
                     next_on - BREATH_END,
@@ -828,7 +843,11 @@ pub fn plan_syllables(
                         f: sc.of(BREATH_FORMANTS),
                     },
                 );
-                plan.put(next_on - BREATH_END, next_on, Segment::Silence { f: nf, hold });
+                plan.put(
+                    next_on - BREATH_END,
+                    next_on,
+                    Segment::Silence { f: nf, hold },
+                );
             } else {
                 plan.put(coda_end, next_on, Segment::Silence { f: nf, hold });
             }
@@ -922,10 +941,37 @@ fn consonant_segments(
                 // leaks a little low-passed voicing at its start.
                 let le = (t0 + LEAK_TIME).min(cl);
                 let leak = amp * CLOSURE_LEAK;
-                plan.put(t0, le, Segment::Closure { f: cc, av: leak, bar: true, hold });
-                plan.put(le, cl, Segment::Closure { f: cc, av: 0.0, bar: false, hold });
+                plan.put(
+                    t0,
+                    le,
+                    Segment::Closure {
+                        f: cc,
+                        av: leak,
+                        bar: true,
+                        hold,
+                    },
+                );
+                plan.put(
+                    le,
+                    cl,
+                    Segment::Closure {
+                        f: cc,
+                        av: 0.0,
+                        bar: false,
+                        hold,
+                    },
+                );
             } else {
-                plan.put(t0, cl, Segment::Closure { f: cc, av, bar, hold });
+                plan.put(
+                    t0,
+                    cl,
+                    Segment::Closure {
+                        f: cc,
+                        av,
+                        bar,
+                        hold,
+                    },
+                );
             }
             if c.class == ConsClass::Stop {
                 let ff = match c.locus {
