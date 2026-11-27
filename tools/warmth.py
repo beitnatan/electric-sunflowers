@@ -33,6 +33,9 @@ HIGH = (C3 >= 2000) & (C3 <= 5000)
 TOP = (C3 >= 5000) & (C3 <= 8000)
 ALLB = C3 <= 10000
 FEMALE = ("alto", "soprano")
+# The sung pitch of tenor and soprano is above the target's open-vowel f0 limit;
+# the limit is raised to the voice's pitch so open frames exist.
+OPEN_F0 = {"tenor": 300.0, "soprano": 500.0}
 MARGIN = 0.05
 MIN_VOWEL = 0.25  # s; shorter vowel gaps are skipped
 
@@ -125,6 +128,17 @@ def noise_stats(x, sr, f0n, t0, t1):
     return hnr, flat
 
 
+def fill(vh):
+    """Fill 1/3-octave bands that hold no harmonic (the voice sings one fixed
+    pitch, so the comb leaves gaps) by linear interpolation in dB over log
+    frequency; the ends hold the nearest value."""
+    vh = np.asarray(vh, float)
+    good = np.isfinite(vh) & (vh > -250)
+    if good.sum() < 2:
+        return vh
+    return np.interp(np.log(C3), np.log(C3[good]), vh[good])
+
+
 def row_from_hb(hb, open_med, peak_flr):
     """Warmth measures from harmonic band powers (linear)."""
     tilt = 10 * np.log10(hb[LOW].sum() / hb[HIGH].sum())
@@ -159,7 +173,7 @@ def measure(d, items, tgt, sex):
     notes_midi = json.load(open(os.path.join(d, "notes.json")))
     if len(ph) != sum(i["syllables"] for i in items):
         raise SystemExit("%s: %d notes for %d syllables" % (d, len(ph), sum(i["syllables"] for i in items)))
-    ok = tgt.get("open_k", 3), tgt.get("open_f0", 200.0)
+    ok = tgt.get("open_k", 3), max(tgt.get("open_f0", 200.0), OPEN_F0.get(voice, 0))
     words, k = [], 0
     for it in items:
         ns = ph[k:k + it["syllables"]]
@@ -204,13 +218,13 @@ def word_scores(w, t, tr):
     p = w.get("pool")
     if not p:
         return None
-    hb = 10 ** (np.array(p["vowel_h"]) / 10)
-    hb = np.where(np.isfinite(hb), hb, 1e-30)
+    vh = fill(p["vowel_h"])
+    hb = 10 ** (vh / 10)
     row = row_from_hb(hb, np.nan, peak_flr_of(p))
     wc = np.mean([score(row["tilt"] - tr["tilt"], SCALES["tilt"]),
                   score(np.log2(row["centroid"] / tr["centroid"]), SCALES["centroid"]),
                   score(10 * np.log10(max(row["share"], 1e-9) / tr["share"]), SCALES["share"])])
-    parts = [score(j_of(p["vowel_h"], t), SCALES["J"]),
+    parts = [score(j_of(vh, t), SCALES["J"]),
              score(row["peak_flr"] - tr["peak_flr"], SCALES["peak_flr"])]
     if "formant" in w:
         parts.append(score(w["formant"], SCALES["formant"]))
@@ -223,15 +237,16 @@ def report(d, items, worst):
     tgt = json.load(open(os.path.join(HERE, "targets", "voice_vocadito_%s.json" % ("female" if sex == "f" else "male"))))
     tr = ref_row(tgt)
     voice, words = measure(d, items, tgt, sex)
-    ok = tgt.get("open_k", 3), tgt.get("open_f0", 200.0)
+    ok = tgt.get("open_k", 3), max(tgt.get("open_f0", 200.0), OPEN_F0.get(voice, 0))
     rs = [w["r"] for w in words if w.get("r") and w["r"]["nfr"]]
     pool = vt.pool(rs, [np.ones(len(C3))] * len(rs), *ok)
-    hb = sum(r["hb"] for r in rs)
+    vhf = fill(pool["vowel_h"])
+    hb = 10 ** (vhf / 10)
     row = row_from_hb(hb, pool["open_h12"]["median"], peak_flr_of(pool))
     hnr = np.concatenate([w["hnr"] for w in words if w.get("hnr")])
     flat = np.concatenate([w["flat"] for w in words if w.get("flat")])
     fm = [w["formant"] for w in words if "formant" in w]
-    row["J"] = j_of(pool["vowel_h"], tgt)
+    row["J"] = j_of(vhf, tgt)
     row["formant"] = float(np.mean(fm)) if fm else float("nan")
     row["hnr"] = float(np.median(hnr))
     row["flat"] = float(np.median(flat))
@@ -261,7 +276,7 @@ HEAD = ("%-9s %6s %6s %6s %7s %6s %6s %6s %5s %6s %6s %6s"
 
 
 def fmt_row(name, r, warm="", timb=""):
-    return ("%-9s %6.1f %6.0f %6.1f %7.2f %6s %6.1f %6s %5s %6s %6s %6s" % (
+    return ("%-9s %6.1f %6.0f %6.1f %7.3f %6s %6.1f %6s %5s %6s %6s %6s" % (
         name, r["tilt"], r["centroid"], r["h12"], 100 * r["share"],
         "%.1f" % r["J"] if "J" in r else "-", r["peak_flr"],
         "%.1f" % r["hnr"] if "hnr" in r else "-", "%.1f" % r["flat"] if "flat" in r else "-",
