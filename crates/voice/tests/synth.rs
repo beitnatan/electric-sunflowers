@@ -386,6 +386,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// Re-pinned to `0x88d5be49d00276cc` for the consonant rules of fast notes (rate weight).
 /// Re-pinned to `0x4f12f8cd85b647aa` for the voice bar, the nasal pole-zero pair, lower sonorant voicing and the voiceless closure floor.
 /// Re-pinned to `0xbe81c4d4d64440c7` for the voiceless closure floor protected from the onset and coda compression.
+/// Re-pinned to `0x4211498acbe4863c` for the demo faults: /f/, /r/, closure leak, high-pitch vowel modification, coda /l/.
 #[test]
 fn demo_lead_render_is_bit_identical_at_default_phrasing() {
     let (voice, notes) = demo_lead_notes(1234);
@@ -402,7 +403,7 @@ fn demo_lead_render_is_bit_identical_at_default_phrasing() {
     let bytes: Vec<u8> = out.iter().flat_map(|x| x.to_le_bytes()).collect();
     assert_eq!(
         fnv1a(&bytes),
-        0xbe81c4d4d64440c7,
+        0x4211498acbe4863c,
         "demo lead render changed at the default phrasing"
     );
 }
