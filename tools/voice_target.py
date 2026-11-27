@@ -93,8 +93,9 @@ def band(c):
     return c / 2 ** (1 / 6), c * 2 ** (1 / 6)
 
 
-def analyse(x, sr, notes):
-    """notes: (t0, f0 Hz, duration). Per-stem sums and per-frame samples."""
+def analyse(x, sr, notes, min_dur=0.5):
+    """notes: (t0, f0 Hz, duration). Per-stem sums and per-frame samples.
+    Notes shorter than min_dur seconds are skipped."""
     w = np.hanning(M)
     ff = np.fft.rfftfreq(M, 1 / sr)
     df = ff[1]
@@ -104,7 +105,7 @@ def analyse(x, sr, notes):
     fr = []
     nfr = 0
     for (t0, f0n, d) in notes:
-        if d < 0.5 or f0n <= 0:
+        if d < min_dur or f0n <= 0:
             continue
         a = int((t0 + 0.2 * d) * sr)
         e = int((t0 + 0.8 * d) * sr)

@@ -1,0 +1,896 @@
+{
+ "note": "Standard TTS/phonetics test items, hand-written ARPAbet per syllable (CMU symbols, no stress digits). stress = index of the primary-stressed syllable.",
+ "items": [
+  {
+   "word": "heed",
+   "syl": "heed",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh iy d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hid",
+   "syl": "hid",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ih d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "head",
+   "syl": "head",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh eh d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "had",
+   "syl": "had",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ae d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hod",
+   "syl": "hod",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh aa d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hawed",
+   "syl": "hawed",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ao d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hood",
+   "syl": "hood",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh uh d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "who'd",
+   "syl": "who'd",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh uw d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hud",
+   "syl": "hud",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ah d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "heard",
+   "syl": "heard",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh er d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hayed",
+   "syl": "hayed",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ey d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hoed",
+   "syl": "hoed",
+   "cat": "hvd",
+   "syllables": 1,
+   "ph": [
+    "hh ow d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "fan",
+   "syl": "fan",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "f ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "van",
+   "syl": "van",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "v ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "thin",
+   "syl": "thin",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "th ih n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "than",
+   "syl": "than",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "dh ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "sip",
+   "syl": "sip",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "s ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "zip",
+   "syl": "zip",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "z ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "ship",
+   "syl": "ship",
+   "cat": "fric",
+   "syllables": 1,
+   "ph": [
+    "sh ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "measure",
+   "syl": "meas-ure",
+   "cat": "fric",
+   "syllables": 2,
+   "ph": [
+    "m eh",
+    "zh er"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "chip",
+   "syl": "chip",
+   "cat": "affr",
+   "syllables": 1,
+   "ph": [
+    "ch ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "jam",
+   "syl": "jam",
+   "cat": "affr",
+   "syllables": 1,
+   "ph": [
+    "jh ae m"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "man",
+   "syl": "man",
+   "cat": "nasal",
+   "syllables": 1,
+   "ph": [
+    "m ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "nun",
+   "syl": "nun",
+   "cat": "nasal",
+   "syllables": 1,
+   "ph": [
+    "n ah n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "sing",
+   "syl": "sing",
+   "cat": "nasal",
+   "syllables": 1,
+   "ph": [
+    "s ih ng"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "lip",
+   "syl": "lip",
+   "cat": "liquid",
+   "syllables": 1,
+   "ph": [
+    "l ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "rip",
+   "syl": "rip",
+   "cat": "liquid",
+   "syllables": 1,
+   "ph": [
+    "r ih p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "yes",
+   "syl": "yes",
+   "cat": "glide",
+   "syllables": 1,
+   "ph": [
+    "y eh s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "wet",
+   "syl": "wet",
+   "cat": "glide",
+   "syllables": 1,
+   "ph": [
+    "w eh t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "hat",
+   "syl": "hat",
+   "cat": "glide",
+   "syllables": 1,
+   "ph": [
+    "hh ae t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "pat",
+   "syl": "pat",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "p ae t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "bat",
+   "syl": "bat",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "b ae t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "tan",
+   "syl": "tan",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "t ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "dan",
+   "syl": "dan",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "d ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "can",
+   "syl": "can",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "k ae n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "gap",
+   "syl": "gap",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "g ae p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "cap",
+   "syl": "cap",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "k ae p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "cab",
+   "syl": "cab",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "k ae b"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "tap",
+   "syl": "tap",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "t ae p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "bad",
+   "syl": "bad",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "b ae d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "back",
+   "syl": "back",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "b ae k"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "bag",
+   "syl": "bag",
+   "cat": "stop",
+   "syllables": 1,
+   "ph": [
+    "b ae g"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "street",
+   "syl": "street",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "s t r iy t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "spring",
+   "syl": "spring",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "s p r ih ng"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "past",
+   "syl": "past",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "p ae s t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "helps",
+   "syl": "helps",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "hh eh l p s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "strong",
+   "syl": "strong",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "s t r ao ng"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "splash",
+   "syl": "splash",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "s p l ae sh"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "fifths",
+   "syl": "fifths",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "f ih f th s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "blend",
+   "syl": "blend",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "b l eh n d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "desks",
+   "syl": "desks",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "d eh s k s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "crisp",
+   "syl": "crisp",
+   "cat": "cluster",
+   "syllables": 1,
+   "ph": [
+    "k r ih s p"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "ferry",
+   "syl": "fer-ry",
+   "cat": "trouble",
+   "syllables": 2,
+   "ph": [
+    "f eh",
+    "r iy"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "river",
+   "syl": "riv-er",
+   "cat": "trouble",
+   "syllables": 2,
+   "ph": [
+    "r ih",
+    "v er"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "rail",
+   "syl": "rail",
+   "cat": "trouble",
+   "syllables": 1,
+   "ph": [
+    "r ey l"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "pale",
+   "syl": "pale",
+   "cat": "trouble",
+   "syllables": 1,
+   "ph": [
+    "p ey l"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "carry",
+   "syl": "car-ry",
+   "cat": "trouble",
+   "syllables": 2,
+   "ph": [
+    "k ae",
+    "r iy"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "every",
+   "syl": "ev-ry",
+   "cat": "trouble",
+   "syllables": 2,
+   "ph": [
+    "eh v",
+    "r iy"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "harbor",
+   "syl": "har-bor",
+   "cat": "trouble",
+   "syllables": 2,
+   "ph": [
+    "hh aa r",
+    "b er"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "half",
+   "syl": "half",
+   "cat": "trouble",
+   "syllables": 1,
+   "ph": [
+    "hh ae f"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "four",
+   "syl": "four",
+   "cat": "trouble",
+   "syllables": 1,
+   "ph": [
+    "f ao r"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "light",
+   "syl": "light",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "l ay t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "rain",
+   "syl": "rain",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "r ey n"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "sunlight",
+   "syl": "sun-light",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "s ah n",
+    "l ay t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "raindrops",
+   "syl": "rain-drops",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "r ey n",
+    "d r aa p s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "water",
+   "syl": "wa-ter",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "w ao",
+    "t er"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "colors",
+   "syl": "col-ors",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "k ah",
+    "l er z"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "beautiful",
+   "syl": "beau-ti-ful",
+   "cat": "rainbow",
+   "syllables": 3,
+   "ph": [
+    "b y uw",
+    "t ih",
+    "f ah l"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "harvard",
+   "syl": "har-vard",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "hh aa r",
+    "v er d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "circular",
+   "syl": "cir-cu-lar",
+   "cat": "rainbow",
+   "syllables": 3,
+   "ph": [
+    "s er",
+    "k y ah",
+    "l er"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "arch",
+   "syl": "arch",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "aa r ch"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "ends",
+   "syl": "ends",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "eh n d z"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "legend",
+   "syl": "leg-end",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "l eh",
+    "jh ah n d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "pot",
+   "syl": "pot",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "p aa t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "gold",
+   "syl": "gold",
+   "cat": "rainbow",
+   "syllables": 1,
+   "ph": [
+    "g ow l d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "people",
+   "syl": "peo-ple",
+   "cat": "rainbow",
+   "syllables": 2,
+   "ph": [
+    "p iy",
+    "p ah l"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "birch",
+   "syl": "birch",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "b er ch"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "canoe",
+   "syl": "ca-noe",
+   "cat": "harvard",
+   "syllables": 2,
+   "ph": [
+    "k ah",
+    "n uw"
+   ],
+   "stress": 1
+  },
+  {
+   "word": "slid",
+   "syl": "slid",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "s l ih d"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "smooth",
+   "syl": "smooth",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "s m uw dh"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "planks",
+   "syl": "planks",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "p l ae ng k s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "glue",
+   "syl": "glue",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "g l uw"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "sheet",
+   "syl": "sheet",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "sh iy t"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "thick",
+   "syl": "thick",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "th ih k"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "juice",
+   "syl": "juice",
+   "cat": "harvard",
+   "syllables": 1,
+   "ph": [
+    "jh uw s"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "oranges",
+   "syl": "or-an-ges",
+   "cat": "harvard",
+   "syllables": 3,
+   "ph": [
+    "ao",
+    "r ih n",
+    "jh ih z"
+   ],
+   "stress": 0
+  },
+  {
+   "word": "often",
+   "syl": "of-ten",
+   "cat": "harvard",
+   "syllables": 2,
+   "ph": [
+    "ao",
+    "f ah n"
+   ],
+   "stress": 0
+  }
+ ]
+}
