@@ -1,0 +1,163 @@
+diff --git a/crates/voice/src/articulation.rs b/crates/voice/src/articulation.rs
+index b11c3261..20ce524c 100644
+--- a/crates/voice/src/articulation.rs
++++ b/crates/voice/src/articulation.rs
+@@ -343,6 +343,7 @@ pub fn cons_dur(p: Phoneme, coda: bool) -> f64 {
+         }
+         ConsClass::Affricate => c.closure + AFFRICATE_BURST + c.fric_dur,
+         ConsClass::Nasal if coda => CODA_NASAL,
++        ConsClass::Sonorant if coda && p == Phoneme::L && xl()[0] > 0.0 => xl()[1],
+         _ => c.dur,
+     }
+ }
+@@ -614,7 +615,21 @@ pub fn plan_syllables(
+     for k in range {
+         let (n, s) = (&notes[k], &syl[k]);
+         let amp = n.amp as f64;
+-        let vt = &s.targets;
++        let pre_l = s.coda.first() == Some(&Phoneme::L) && xl()[0] > 0.0;
++        let blended: Vec<NucTarget>;
++        let vt: &[NucTarget] = if pre_l && s.targets.len() > 1 {
++            let g = xl()[4];
++            let f0t = s.targets[0].f;
++            blended = s
++                .targets
++                .iter()
++                .enumerate()
++                .map(|(j, v)| if j == 0 { *v } else { NucTarget { f: [0, 1, 2].map(|q| f0t[q] + g * (v.f[q] - f0t[q])), ..*v } })
++                .collect();
++            &blended
++        } else {
++            &s.targets
++        };
+         let vf0 = sc.of(vt[0].f);
+         let vfl = sc.of(vt[vt.len() - 1].f);
+         let next = notes.get(k + 1).zip(syl.get(k + 1));
+@@ -730,6 +745,20 @@ pub fn plan_syllables(
+                 ConsClass::Stop | ConsClass::Affricate | ConsClass::Fricative
+             )
+         });
++        if let (true, Some(c), Some(NucKind::Vowel)) = (pre_l, consonant(Phoneme::L), vt.last().map(|v| v.kind)) {
++            let t = sc.of(c.formants);
++            let pull = xl()[2];
++            let loc = [0, 1, 2].map(|i| t[i] * (1.0 - pull) + vfl[i] * pull);
++            let tt = xl()[5].min(vlen * VC_SHARE);
++            let t_a = coda_start - tt;
++            for j in 0..CV_STEPS {
++                let a = (j as f64 + 0.5) / CV_STEPS as f64;
++                let f = [0, 1, 2].map(|q| vfl[q] + (loc[q] - vfl[q]) * a);
++                let t0 = t_a + tt * j as f64 / CV_STEPS as f64;
++                let t1 = t_a + tt * (j as f64 + 1.0) / CV_STEPS as f64;
++                plan.put(t0, t1, Segment::Vowel { f, av: amp * (1.0 - (1.0 - xl()[3]) * 0.5 * a) });
++            }
++        }
+         if let (Some(c), Some(NucKind::Vowel)) = (vc, vt.last().map(|v| v.kind)) {
+             let loc = sc.locus(c, vfl);
+             let tt = (VC_TRANSITION - FAST_VC_CUT * w).min(vlen * VC_SHARE);
+@@ -798,8 +827,10 @@ fn consonant_segments(
+     match c.class {
+         ConsClass::Sonorant | ConsClass::Nasal => {
+             let t = sc.of(c.formants);
+-            let f = [0, 1, 2].map(|i| t[i] * 0.75 + vf[i] * 0.25);
+-            let av = amp * c.av;
++            let codal = coda && ph == Phoneme::L && xl()[0] > 0.0;
++            let pull = if codal { xl()[2] } else { 0.25 };
++            let f = [0, 1, 2].map(|i| t[i] * (1.0 - pull) + vf[i] * pull);
++            let av = amp * if codal { xl()[3] } else { c.av };
+             let seg = if c.class == ConsClass::Nasal {
+                 Segment::Nasal { f, av, zero: c.fnz }
+             } else {
+@@ -1349,3 +1380,11 @@ mod tests {
+         }
+     }
+ }
++
++fn xl() -> [f64; 6] {
++    static K: std::sync::OnceLock<[f64; 6]> = std::sync::OnceLock::new();
++    *K.get_or_init(|| {
++        let g = |n: &str, d: f64| std::env::var(n).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
++        [g("XL", 0.0), g("XLDUR", 0.12), g("XLPULL", 0.10), g("XLAV", 0.6), g("XLGLIDE", 0.3), g("XLVL", 0.15)]
++    })
++}
+diff --git a/crates/voice/src/synth.rs b/crates/voice/src/synth.rs
+index bb2df5b4..69b03ff0 100644
+--- a/crates/voice/src/synth.rs
++++ b/crates/voice/src/synth.rs
+@@ -177,6 +177,7 @@ pub struct VoiceSynth {
+     breath: f64,
+     /// Scale on B1 (`VoiceParams::b1_scale`).
+     b1_scale: f64,
++    fs_x: f64,
+     /// Per-frame noise buffers.
+     asp: [f32; HOP],
+     fric: [f32; HOP],
+@@ -215,6 +216,7 @@ impl VoiceSynth {
+             cons_gain: p.cons_gain,
+             breath: p.breath,
+             b1_scale: p.b1_scale,
++            fs_x: p.fs,
+             asp: [0.0; HOP],
+             fric: [0.0; HOP],
+         }
+@@ -238,18 +240,25 @@ impl VoiceSynth {
+     /// Formants of frame `m` (fundamental `f0` Hz) with the current wobble.
+     fn formants(&self, ctl: &ControlTracks, m: usize, f0: f64) -> Formants {
+         let nas = ctl.nas[m] as f64;
++        let k = xk();
++        let mm = k[0] * sfcore::math::smoothstep(k[1], k[2], f0);
++        let f2 = ctl.f2[m] as f64;
++        let f3 = ctl.f3[m] as f64;
++        let f2 = f2 - mm * (f2 - k[3] * self.fs_x).max(0.0);
++        let f3 = f3 - mm * (f3 - k[4] * self.fs_x).max(0.0);
++        let bwk = 1.0 + k[5] * sfcore::math::smoothstep(k[1], k[2], f0);
+         Formants {
+             f: [
+                 (ctl.f1[m] as f64).max(f0 * 1.06),
+-                ctl.f2[m] as f64 * (1.0 + self.wobble[0].w),
+-                ctl.f3[m] as f64 * (1.0 + self.wobble[1].w),
++                f2 * (1.0 + self.wobble[0].w),
++                f3 * (1.0 + self.wobble[1].w),
+             ],
+             bw: [
+                 (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN)
+                     * BW_SCALE
+                     * self.b1_scale,
+-                (90.0 + nas * NAS_B2_HZ) * BW_SCALE,
+-                (130.0 + nas * NAS_B3_HZ) * BW_SCALE,
++                (90.0 + nas * NAS_B2_HZ) * BW_SCALE * bwk,
++                (130.0 + nas * NAS_B3_HZ) * BW_SCALE * bwk,
+             ],
+         }
+     }
+@@ -540,9 +549,31 @@ pub(crate) fn render_phrases_with(
+             },
+             &mut ctl,
+         );
++        if let Ok(path) = std::env::var("VOICE_DUMP") {
++            use std::io::Write;
++            let mut txt = String::new();
++            for i in 0..s.len().min(ctl.av.len()) {
++                txt.push_str(&format!(
++                    "{} {} {:.3} {:.4} {:.1} {:.1} {:.1} {:.4} {:.4} {:.4} {:.3}\n",
++                    seed, s.start + i, p.fs, ctl.midi[i], ctl.f1[i], ctl.f2[i], ctl.f3[i],
++                    ctl.av[i], ctl.ah[i], ctl.af[i], ctl.nas[i]
++                ));
++            }
++            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
++                let _ = f.write_all(txt.as_bytes());
++            }
++        }
+         let n = (s.len() * HOP).min(len - s0);
+         let buf = &mut scratch[..n];
+         synth.render_frames(&ctl, 0..s.len(), buf);
+         emit(s0, buf);
+     }
+ }
++
++fn xk() -> [f64; 6] {
++    static K: std::sync::OnceLock<[f64; 6]> = std::sync::OnceLock::new();
++    *K.get_or_init(|| {
++        let g = |n: &str, d: f64| std::env::var(n).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
++        [g("XM", 0.0), g("XLO", 400.0), g("XHI", 700.0), g("XF2", 1700.0), g("XF3", 2500.0), g("XBW", 0.0)]
++    })
++}

@@ -361,6 +361,14 @@ const ENDINGS = ['held', 'released', 'clipped'];
 const BAND = [['bass', 'String bass'], ['harmonyGuitar', 'Harmony guitar'], ['harp', 'Harp'], ['violin', 'Violin'], ['choir', 'Choir'], ['harmonies', 'Harmony voice'], ['doubles', 'Doubled lead']];
 const KEYS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const DRAFT = 'sunflower.draft';
+// What the engine plays for a band field the song leaves out (song::Band::default,
+// crates/song/src/model.rs). The page shows these, so the boxes match the render.
+const BAND_DEFAULTS = { drums: 'brushes', bass: true, harmonyGuitar: true, harp: false, violin: true, choir: true, harmonies: true, doubles: true };
+function fillBand(s) {
+  const b = s.band && typeof s.band === 'object' && !Array.isArray(s.band) ? s.band : (s.band = {});
+  for (const k of Object.keys(BAND_DEFAULTS)) if (b[k] == null) b[k] = BAND_DEFAULTS[k];
+  return s;
+}
 
 const blankSong = () => ({
   schema_version: 3, title: 'Untitled', note: '', key: 'G', mode: 'major', meter: '4/4', tempo: 100,
@@ -445,7 +453,7 @@ function goto(i) {
   const open = (song.sections || []).map((x) => openSecs.has(x));
   restoring = true;
   try {
-    song = o.s; $('lyr').value = o.l; hi = i;
+    song = fillBand(o.s); $('lyr').value = o.l; hi = i;
     (song.sections || []).forEach((x, k) => { if (open[k]) openSecs.add(x); });
     $('json').value = text(); setJsonState(true); buildAll(); lyricInfo();
     try { localStorage.setItem('sunflower.lyrics', o.l); } catch (e) { /* ignore */ }
@@ -552,7 +560,8 @@ const tuneNotes = (t) => (t || '').split(/\s+/).filter((x) => x && x !== '-').le
 // ---- Song tab ----
 function buildSong() {
   const p = $('p-song'); p.textContent = '';
-  const band = (song.band ||= {});
+  fillBand(song);
+  const band = song.band;
   const idf = h('fieldset', { class: 'wide' }, h('legend', { text: 'Identity' }),
     labelled('Title', bind(h('input', { type: 'text' }), song, 'title')),
     labelled('Liner note', bind(h('textarea', { rows: 3 }), song, 'note', { optional: true })));
@@ -824,7 +833,7 @@ $('file').onchange = async () => {
 };
 
 function buildAll() { buildSong(); buildSections(); }
-function setSong(v, label = 'Load song', quiet = false) { song = v; $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true, label, toast: label, quiet }); }
+function setSong(v, label = 'Load song', quiet = false) { song = fillBand(v); $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true, label, toast: label, quiet }); }
 
 
 // ---- Lyrics tab: plain words in, song sections out ----
