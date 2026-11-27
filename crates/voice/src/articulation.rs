@@ -116,11 +116,16 @@ pub enum Segment {
     /// Oral closure; `av` is the voicing that leaks through (voiced
     /// stops). `bar` marks a voice bar: the voiced signal is low-passed
     /// (`tuning::VOICE_BAR_HZ`) while it lasts.
-    Closure { f: Formants3, av: f64, bar: bool },
+    Closure {
+        f: Formants3,
+        av: f64,
+        bar: bool,
+        hold: bool,
+    },
     /// Audible in-breath before a phrase.
     Breath { f: Formants3 },
     /// Nothing sounds; the formants move toward the next nucleus.
-    Silence { f: Formants3 },
+    Silence { f: Formants3, hold: bool },
 }
 
 impl Segment {
@@ -134,7 +139,7 @@ impl Segment {
             | Segment::Burst { f, .. }
             | Segment::Closure { f, .. }
             | Segment::Breath { f }
-            | Segment::Silence { f } => f,
+            | Segment::Silence { f, .. } => f,
         }
     }
 }
@@ -150,6 +155,20 @@ pub const CODA_SHARE: f64 = 0.4;
 const VC_TRANSITION: f64 = 0.045;
 const VC_SHARE: f64 = 0.3;
 const VC_DEPTH: f64 = 0.7;
+/// Pull of an onset /r/ toward the vowel: none, so F3 reaches its dip.
+const R_PULL: f64 = 0.0;
+/// Pull of other sonorants and nasals toward the vowel.
+const SONORANT_PULL: f64 = 0.25;
+/// Coda /l/: duration (s), pull toward the vowel and voicing level.
+const CODA_L: f64 = 0.12;
+const CODA_L_PULL: f64 = 0.10;
+const CODA_L_AV: f64 = 0.80;
+/// A nucleus before a coda /l/ moves its later diphthong targets only this
+/// far from the first (the offglide stays small).
+const PRE_L_GLIDE: f64 = 0.3;
+/// Longest linear transition from the vowel to a coda /l/, s (also limited
+/// to `VC_SHARE` of the vowel).
+const VL_TRANSITION: f64 = 0.15;
 
 /// Longest CV transition, s (locus to vowel).
 pub const CV_TRANSITION: f64 = 0.05;
@@ -184,6 +203,10 @@ const BREATH_FORMANTS: Formants3 = [620.0, 1200.0, 2400.0];
 pub const MIN_VL_CLOSURE: f64 = 0.045;
 /// Voicing in a voiced closure, as a share of the note's amplitude.
 pub const CLOSURE_VOICING: f64 = 0.145;
+/// Voicing that leaks through a voiceless closure within a line (a share
+/// of the note's amplitude) and how long it lasts, s.
+pub const CLOSURE_LEAK: f64 = 0.03;
+pub const LEAK_TIME: f64 = 0.025;
 /// Highest F1 in a voiced closure, Hz: the closed tract's lowest
 /// resonance.
 pub const CLOSED_F1_HZ: f64 = 250.0;
@@ -343,6 +366,7 @@ pub fn cons_dur(p: Phoneme, coda: bool) -> f64 {
         }
         ConsClass::Affricate => c.closure + AFFRICATE_BURST + c.fric_dur,
         ConsClass::Nasal if coda => CODA_NASAL,
+        ConsClass::Sonorant if coda && p == Phoneme::L => CODA_L,
         _ => c.dur,
     }
 }
@@ -625,7 +649,18 @@ pub fn plan_syllables(
         let mut t = s.onset_start;
         for ((&ph, &d), &e) in s.onset.iter().zip(&s.onset_dur).zip(&s.onset_extra) {
             let d = d * s.onset_scale + e;
-            consonant_segments(&mut plan, &sc, ph, t, t + d, e, vf0, amp, false);
+            consonant_segments(
+                &mut plan,
+                &sc,
+                ph,
+                t,
+                t + d,
+                e,
+                vf0,
+                amp,
+                false,
+                !n.phrase_start,
+            );
             t += d;
         }
         let locus = s
@@ -715,9 +750,14 @@ pub fn plan_syllables(
                     av: amp,
                 },
             );
+            let pre_l = s.coda.first() == Some(&Phoneme::L);
             for (j, v) in vt.iter().enumerate().skip(1) {
                 let a = coda_start - tail + (j - 1) as f64 * each;
-                plan.put(a, a + each, v.segment(sc.of(v.f), amp));
+                let mut f = sc.of(v.f);
+                if pre_l {
+                    f = [0, 1, 2].map(|q| vf0[q] + (f[q] - vf0[q]) * PRE_L_GLIDE);
+                }
+                plan.put(a, a + each, v.segment(f, amp));
             }
         }
 
@@ -744,11 +784,43 @@ pub fn plan_syllables(
             }
         }
 
+        // VL transition: a linear move from the vowel to a coda /l/'s target.
+        if let (Some(c), Some(NucKind::Vowel)) = (
+            s.coda
+                .first()
+                .filter(|&&ph| ph == Phoneme::L)
+                .and_then(|&ph| consonant(ph)),
+            vt.last().map(|v| v.kind),
+        ) {
+            let lt = sc.of(c.formants);
+            let end = [0, 1, 2].map(|q| lt[q] * (1.0 - CODA_L_PULL) + vfl[q] * CODA_L_PULL);
+            let tt = VL_TRANSITION.min(vlen * VC_SHARE);
+            let t_a = coda_start - tt;
+            for j in 0..CV_STEPS {
+                let a = (j as f64 + 1.0) / CV_STEPS as f64;
+                let f = [0, 1, 2].map(|q| vfl[q] + (end[q] - vfl[q]) * a);
+                let t0 = t_a + tt * j as f64 / CV_STEPS as f64;
+                let t1 = t_a + tt * (j as f64 + 1.0) / CV_STEPS as f64;
+                plan.put(t0, t1, Segment::Vowel { f, av: amp });
+            }
+        }
+
         // Coda consonants.
         t = coda_start;
         for ((&ph, &d), &e) in s.coda.iter().zip(&s.coda_dur).zip(&coda_extra) {
             let d = d * s2 + e;
-            consonant_segments(&mut plan, &sc, ph, t, t + d, e, vfl, amp, true);
+            consonant_segments(
+                &mut plan,
+                &sc,
+                ph,
+                t,
+                t + d,
+                e,
+                vfl,
+                amp,
+                true,
+                next.is_some_and(|(nn, _)| !nn.phrase_start),
+            );
             t += d;
         }
 
@@ -757,8 +829,13 @@ pub fn plan_syllables(
         if next_on > coda_end + 0.01 && !next_legato {
             let nf = next.map_or(vfl, |(_, ns)| sc.of(ns.targets[0].f));
             let phrase = next.is_some_and(|(nn, _)| nn.phrase_start);
+            let hold = next.is_some() && !phrase;
             if phrase && next_on - coda_end > BREATH_PAUSE && settings.breath_pauses {
-                plan.put(coda_end, next_on - BREATH_START, Segment::Silence { f: nf });
+                plan.put(
+                    coda_end,
+                    next_on - BREATH_START,
+                    Segment::Silence { f: nf, hold },
+                );
                 plan.put(
                     next_on - BREATH_START,
                     next_on - BREATH_END,
@@ -766,9 +843,13 @@ pub fn plan_syllables(
                         f: sc.of(BREATH_FORMANTS),
                     },
                 );
-                plan.put(next_on - BREATH_END, next_on, Segment::Silence { f: nf });
+                plan.put(
+                    next_on - BREATH_END,
+                    next_on,
+                    Segment::Silence { f: nf, hold },
+                );
             } else {
-                plan.put(coda_end, next_on, Segment::Silence { f: nf });
+                plan.put(coda_end, next_on, Segment::Silence { f: nf, hold });
             }
         }
     }
@@ -791,6 +872,7 @@ fn consonant_segments(
     vf: Formants3,
     amp: f64,
     coda: bool,
+    hold: bool,
 ) {
     let Some(c) = consonant(ph) else {
         return;
@@ -798,8 +880,16 @@ fn consonant_segments(
     match c.class {
         ConsClass::Sonorant | ConsClass::Nasal => {
             let t = sc.of(c.formants);
-            let f = [0, 1, 2].map(|i| t[i] * 0.75 + vf[i] * 0.25);
-            let av = amp * c.av;
+            let coda_l = coda && ph == Phoneme::L;
+            let pull = if ph == Phoneme::R {
+                R_PULL
+            } else if coda_l {
+                CODA_L_PULL
+            } else {
+                SONORANT_PULL
+            };
+            let f = [0, 1, 2].map(|i| t[i] * (1.0 - pull) + vf[i] * pull);
+            let av = amp * if coda_l { CODA_L_AV } else { c.av };
             let seg = if c.class == ConsClass::Nasal {
                 Segment::Nasal { f, av, zero: c.fnz }
             } else {
@@ -846,7 +936,43 @@ fn consonant_segments(
                 cc[0] = cc[0].min(CLOSED_F1_HZ);
             }
             let av = if c.voiced { amp * CLOSURE_VOICING } else { 0.0 };
-            plan.put(t0, cl, Segment::Closure { f: cc, av, bar });
+            if hold && !c.voiced {
+                // Within a line a voiceless closure keeps the tract alive and
+                // leaks a little low-passed voicing at its start.
+                let le = (t0 + LEAK_TIME).min(cl);
+                let leak = amp * CLOSURE_LEAK;
+                plan.put(
+                    t0,
+                    le,
+                    Segment::Closure {
+                        f: cc,
+                        av: leak,
+                        bar: true,
+                        hold,
+                    },
+                );
+                plan.put(
+                    le,
+                    cl,
+                    Segment::Closure {
+                        f: cc,
+                        av: 0.0,
+                        bar: false,
+                        hold,
+                    },
+                );
+            } else {
+                plan.put(
+                    t0,
+                    cl,
+                    Segment::Closure {
+                        f: cc,
+                        av,
+                        bar,
+                        hold,
+                    },
+                );
+            }
             if c.class == ConsClass::Stop {
                 let ff = match c.locus {
                     Locus::At(_) => c.ff,
@@ -1079,7 +1205,7 @@ mod tests {
                     .map(|(sp, _)| sp.len())
                     .sum()
             };
-            let clos = len(|g| matches!(g, Segment::Closure { av, .. } if *av == 0.0));
+            let clos = len(|g| matches!(g, Segment::Closure { .. }));
             let burst = len(|g| matches!(g, Segment::Burst { .. }));
             let asp = len(|g| matches!(g, Segment::Aspiration { b1x, .. } if *b1x > 0.0));
             assert!((clos - 0.045 * cs).abs() < 1e-9, "{voice:?} closure {clos}");
@@ -1134,10 +1260,11 @@ mod tests {
                 note(0.5 + gap, 0.5 + 2.0 * gap, &["t", "aa"], true),
             ];
             let plan = plan_segments(&notes, &p, &settings);
+            // Within a line the closure is the leak span plus the rest.
             plan.iter()
-                .find(|(sp, g)| matches!(g, Segment::Closure { .. }) && sp.t0 > 0.5)
+                .filter(|(sp, g)| matches!(g, Segment::Closure { .. }) && sp.t0 > 0.5)
                 .map(|(sp, _)| sp.len())
-                .unwrap_or(0.0)
+                .sum::<f64>()
         };
         // Interval 0.25 s: rate weight 0.7; the cut closure is 40.8 ms.
         assert!((closure_of(0.25) - MIN_VL_CLOSURE).abs() < 1e-9);

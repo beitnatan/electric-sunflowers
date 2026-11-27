@@ -113,6 +113,12 @@ const fn at(c: Consonant, locus: Locus) -> Consonant {
     Consonant { locus, ..c }
 }
 
+/// /f/ frication centre, bandwidth (Hz) and level: flat and weak like a
+/// real /f/, not an /s/-like band at 5.5 kHz.
+pub const F_FF: f64 = 3000.0;
+pub const F_BW: f64 = 6000.0;
+pub const F_AF: f64 = 0.05;
+
 const fn fric(ff: f64, bw: f64, af: f64, voiced: bool, dur: f64) -> Consonant {
     Consonant {
         class: ConsClass::Fricative,
@@ -194,7 +200,7 @@ pub const CONSONANTS: [Option<Consonant>; Phoneme::COUNT] = {
     // and 6 dB under the vowel; they were 0.72, 0.78, 0.65, 0.65, dips of 2
     // to 4 dB).
     t[P::L as usize] = Some(son(Sonorant, [360.0, 1050.0, 2700.0], 0.45, 0.055));
-    t[P::R as usize] = Some(son(Sonorant, [420.0, 1250.0, 1650.0], 0.60, 0.06));
+    t[P::R as usize] = Some(son(Sonorant, [420.0, 1150.0, 1550.0], 0.60, 0.075));
     t[P::W as usize] = Some(son(Sonorant, [300.0, 650.0, 2200.0], 0.50, 0.055));
     t[P::Y as usize] = Some(son(Sonorant, [270.0, 2100.0, 3000.0], 0.50, 0.05));
     t[P::M as usize] = Some(nasal(
@@ -216,7 +222,7 @@ pub const CONSONANTS: [Option<Consonant>; Phoneme::COUNT] = {
     t[P::Z as usize] = Some(at(fric(6000.0, 3500.0, 0.38, true, 0.075), alveolar));
     t[P::Sh as usize] = Some(at(fric(3100.0, 1800.0, 0.62, false, 0.095), postalveolar));
     t[P::Zh as usize] = Some(at(fric(2900.0, 1800.0, 0.38, true, 0.07), postalveolar));
-    t[P::F as usize] = Some(at(fric(5500.0, 7000.0, 0.24, false, 0.08), labiodental));
+    t[P::F as usize] = Some(at(fric(F_FF, F_BW, F_AF, false, 0.08), labiodental));
     t[P::V as usize] = Some(at(fric(5000.0, 6000.0, 0.16, true, 0.06), labiodental));
     t[P::Th as usize] = Some(at(fric(5500.0, 6000.0, 0.18, false, 0.075), dental));
     // Voiced "th" is mostly voicing; its dental transition carries it.

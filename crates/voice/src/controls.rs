@@ -131,6 +131,9 @@ pub struct ControlTracks {
     /// Voice bar 0-1: 1 inside a voiced stop's closure, where the voiced
     /// signal is low-passed.
     pub vb: Vec<f32>,
+    /// 1 inside a closure or silence within a line: the synthesiser keeps
+    /// the tract running instead of skipping and resetting it.
+    pub hold: Vec<f32>,
     /// Nasal zero (antiresonance) centre, Hz: the nasal's own inside a
     /// nasal, `NASAL_POLE_HZ` elsewhere, smoothed with `nas`.
     pub fnz: Vec<f32>,
@@ -162,6 +165,7 @@ impl ControlTracks {
         set(&mut self.midi, 0.0);
         set(&mut self.b1x, 0.0);
         set(&mut self.vb, 0.0);
+        set(&mut self.hold, 0.0);
         set(&mut self.fnz, NASAL_POLE_HZ as f32);
     }
 
@@ -258,12 +262,13 @@ pub fn rasterise(plan: &[(Span, Segment)], w: Window, out: &mut ControlTracks, b
                 c.ah[r.clone()].fill(ah as f32);
                 c.b1x[r].fill(0.0);
             }
-            Segment::Closure { av, bar, .. } => {
+            Segment::Closure { av, bar, hold, .. } => {
                 c.av[r.clone()].fill(av as f32);
+                c.hold[r.clone()].fill(if hold { 1.0 } else { 0.0 });
                 c.vb[r].fill(if bar { 1.0 } else { 0.0 });
             }
             Segment::Breath { .. } => c.ah[r].fill(BREATH_AH * breath as f32),
-            Segment::Silence { .. } => {}
+            Segment::Silence { hold, .. } => c.hold[r].fill(if hold { 1.0 } else { 0.0 }),
         }
     }
 }
@@ -991,7 +996,8 @@ mod tests {
                 }
             }
         }
-        assert_eq!(bars, 4, "closures of b, d, g and jh");
+        // b, d, g and jh, plus the leak spans of the voiceless p, t and k.
+        assert_eq!(bars, 7, "voice bars");
         for (i, (&vb, &cov)) in c.vb.iter().zip(&covered).enumerate().take(n) {
             assert_eq!(vb == 1.0, cov, "frame {i}");
             assert!(vb == 0.0 || vb == 1.0);

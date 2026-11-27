@@ -120,7 +120,7 @@ impl Tract {
         fixed[1].set_coeffs(design((3950.0 - sf * 500.0) * fs, 300.0 - sf * 120.0));
         for h in 0..n_high {
             let f = HIGH_HZ[h] * fs;
-            fixed[2 + h].set_coeffs(design(f, 420.0 + 0.05 * f));
+            fixed[2 + h].set_coeffs(design(f, (420.0 + 0.05 * f) * p.high_bw));
         }
         let mut np = Resonator::default();
         np.set_coeffs(design(NASAL_POLE_HZ, NASAL_POLE_BW_HZ));

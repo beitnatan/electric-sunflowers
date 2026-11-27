@@ -37,7 +37,7 @@ use std::ops::Range;
 use dsp::biquad::{Biquad, BiquadCoeffs};
 use dsp::onepole::OnePole;
 use dsp::stochastic::RandomWalk;
-use sfcore::math::mtof;
+use sfcore::math::{mtof, smoothstep};
 use sfcore::random::{tag, Rng, Tag};
 use sfcore::{HOP, SR_F};
 use song::events::{SingStyle, VocalNote};
@@ -177,10 +177,23 @@ pub struct VoiceSynth {
     breath: f64,
     /// Scale on B1 (`VoiceParams::b1_scale`).
     b1_scale: f64,
+    /// Formant scale of the voice (`VoiceParams::fs`), for the vowel
+    /// modification at high pitch.
+    fs: f64,
+    /// Lower f0 limit of the vowel modification (`VoiceParams::vmod_lo`).
+    vmod_lo: f64,
     /// Per-frame noise buffers.
     asp: [f32; HOP],
     fric: [f32; HOP],
 }
+
+/// Vowel modification at high pitch: largest share of F2 and F3's excess
+/// over their references removed, the f0 range (Hz) it ramps in over, and
+/// the references (Hz, unscaled; times the voice's `fs`).
+const VMOD_MAX: f64 = 1.0;
+const VMOD_RAMP: f64 = 200.0;
+const VMOD_F2_REF: f64 = 2000.0;
+const VMOD_F3_REF: f64 = 2500.0;
 
 /// Per-frame values the inner loop ramps.
 struct Frame {
@@ -215,6 +228,8 @@ impl VoiceSynth {
             cons_gain: p.cons_gain,
             breath: p.breath,
             b1_scale: p.b1_scale,
+            fs: p.fs,
+            vmod_lo: p.vmod_lo,
             asp: [0.0; HOP],
             fric: [0.0; HOP],
         }
@@ -238,11 +253,18 @@ impl VoiceSynth {
     /// Formants of frame `m` (fundamental `f0` Hz) with the current wobble.
     fn formants(&self, ctl: &ControlTracks, m: usize, f0: f64) -> Formants {
         let nas = ctl.nas[m] as f64;
+        // Vowel modification at high pitch: F2 and F3 above their reference
+        // move down toward it (sung front vowels), by `m` of the excess.
+        let vm = VMOD_MAX * smoothstep(self.vmod_lo, self.vmod_lo + VMOD_RAMP, f0);
+        let f2 = ctl.f2[m] as f64;
+        let f3 = ctl.f3[m] as f64;
+        let f2 = f2 - vm * (f2 - VMOD_F2_REF * self.fs).max(0.0);
+        let f3 = f3 - vm * (f3 - VMOD_F3_REF * self.fs).max(0.0);
         Formants {
             f: [
                 (ctl.f1[m] as f64).max(f0 * 1.06),
-                ctl.f2[m] as f64 * (1.0 + self.wobble[0].w),
-                ctl.f3[m] as f64 * (1.0 + self.wobble[1].w),
+                f2 * (1.0 + self.wobble[0].w),
+                f3 * (1.0 + self.wobble[1].w),
             ],
             bw: [
                 (60.0 + self.breath * 80.0 + nas * 50.0 + ctl.b1x[m] as f64 * B1X_GAIN)
@@ -274,7 +296,7 @@ impl VoiceSynth {
             let lv = |t: &[f32]| (t[m], t[m + 1]);
             let (av, ah, af) = (lv(&ctl.av), lv(&ctl.ah), lv(&ctl.af));
             let off = |x: (f32, f32)| x.0 < SILENT && x.1 < SILENT;
-            if off(av) && off(ah) && off(af) && self.tract.is_quiet() {
+            if off(av) && off(ah) && off(af) && self.tract.is_quiet() && ctl.hold[m] < 0.5 {
                 self.tract.reset_resonators();
                 dst.fill(0.0);
                 m += 1;

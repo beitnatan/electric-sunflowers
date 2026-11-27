@@ -45,6 +45,12 @@ pub struct VoiceParams {
     pub cons_gain: f64,
     /// Scale on the F1 bandwidth (1 = the rule in synth.rs).
     pub b1_scale: f64,
+    /// Scale on the bandwidths of the high resonances above F5 (1 is the
+    /// preset 420 + 0.05 f Hz); narrower puts harmonic energy at 6 to 9 kHz.
+    pub high_bw: f64,
+    /// Lower f0 limit, Hz, of the vowel modification of F2 and F3 (it ramps
+    /// in over 200 Hz from here).
+    pub vmod_lo: f64,
 }
 
 /// The preset for `voice`.
@@ -72,6 +78,8 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 2.74,
             b1_scale: 1.0,
+            high_bw: 1.0,
+            vmod_lo: 300.0,
         },
         // Tenor: fitted to the same male-range singers as the baritone, by
         // the reduced procedure of engine-design 5.1 (capped source).
@@ -93,26 +101,31 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 3.3,
             b1_scale: 1.0,
+            high_bw: 1.0,
+            vmod_lo: 300.0,
         },
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
-            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1)
-            rd: 1.6,
+            // b1_scale fitted to vocadito female per-f0-bin open H1-H2 (engine-design 5.1); capped source (fa_hz 4000) with rd 2.4 keeps open H1-H2 and the vowel distance and raises SingMOS-Pro 3.32 to 3.54 (docs/voice-wordlist.md)
+            // sf 0, f1s 1.10, shelf 17.5 dB and high_bw 0.05 lift the word-list timbre 40 to 48 with per-bin open H1-H2 held (docs/voice-wordlist.md)
+            rd: 2.4,
             fs: 1.16,
-            f1s: 1.08,
+            f1s: 1.10,
             breath: 0.16,
             vib_rate: 5.3,
             vib_depth: 0.32,
             tilt: 4300.0,
             jitter: 0.003,
             shimmer: 0.04,
-            sf: 0.2,
-            fa_hz: 0.0,
-            shelf_db: 16.0,
+            sf: 0.0,
+            fa_hz: 4000.0,
+            shelf_db: 17.5,
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
+            high_bw: 0.05,
+            vmod_lo: 225.0,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
@@ -133,6 +146,8 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
+            high_bw: 1.0,
+            vmod_lo: 300.0,
         },
         // Bass: the baritone's fitted `fa_hz`, `shelf_db`, `hf_bed`, `hf_hz`
         // and `cons_gain`; `rd` picked for the same open-vowel H1-H2; its own
@@ -155,6 +170,8 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 2.74,
             b1_scale: 1.0,
+            high_bw: 1.0,
+            vmod_lo: 300.0,
         },
     }
 }
@@ -213,6 +230,10 @@ pub fn parse_fit(spec: &str) -> Result<(Voice, VoiceParams), String> {
             "hf_hz" => p.hf_hz = num()?,
             "cons_gain" => p.cons_gain = num()?,
             "b1_scale" => p.b1_scale = num()?,
+            "high_bw" => p.high_bw = num()?,
+            "vmod_lo" => p.vmod_lo = num()?,
+            "fs" => p.fs = num()?,
+            "f1s" => p.f1s = num()?,
             "breath" => p.breath = num()?,
             "jitter" => p.jitter = num()?,
             "shimmer" => p.shimmer = num()?,
