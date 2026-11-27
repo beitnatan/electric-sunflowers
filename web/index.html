@@ -5,23 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Electric Sunflowers</title>
 <style>
-  :root { --bg:#fbfaf6; --fg:#1d1b16; --dim:#6b665a; --line:#d8d3c4; --acc:#b7791f; --bad:#a3312b; --ok:#2f6b3a; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#16140f; --fg:#ece7d8; --dim:#9b957f; --line:#37332a; --acc:#e0a53c; --bad:#e2736b; --ok:#7fc08c; } }
+  :root { --bg:#fbfaf6; --fg:#1d1b16; --dim:#6b665a; --line:#d8d3c4; --acc:#b7791f; --bad:#a3312b; --ok:#2f6b3a; --card:#f4f1e7; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16140f; --fg:#ece7d8; --dim:#9b957f; --line:#37332a; --acc:#e0a53c; --bad:#e2736b; --ok:#7fc08c; --card:#1d1a13; } }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
-  main { max-width:44rem; margin:0 auto; padding:1.5rem 1rem 4rem; }
+  main { max-width:50rem; margin:0 auto; padding:1.5rem 1rem 4rem; }
   h1 { font-size:1.4rem; margin:0 0 .25rem; }
-  p.sub { color:var(--dim); margin:0 0 1.25rem; }
-  fieldset { border:1px solid var(--line); border-radius:6px; padding:1rem; margin:0 0 1rem; }
+  p.sub { color:var(--dim); margin:0 0 1rem; }
+  fieldset { border:1px solid var(--line); border-radius:6px; padding:.75rem 1rem 1rem; margin:0 0 1rem; min-width:0; }
   legend { color:var(--dim); padding:0 .4rem; }
-  label { display:block; font-size:.85rem; color:var(--dim); margin:.5rem 0 .15rem; }
-  select, input, textarea, button { font:inherit; color:inherit; background:transparent; border:1px solid var(--line); border-radius:4px; padding:.35rem .5rem; }
-  select, input[type=number] { width:100%; }
-  textarea { width:100%; min-height:7rem; font:13px/1.4 ui-monospace, monospace; }
-  .row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
-  button { cursor:pointer; background:var(--acc); color:#16140f; border-color:var(--acc); font-weight:600; padding:.55rem 1.1rem; }
+  label { display:block; font-size:.8rem; color:var(--dim); margin:.5rem 0 .15rem; }
+  label.chk { display:flex; align-items:center; gap:.4rem; font-size:.9rem; color:var(--fg); margin:.3rem 0; }
+  select, input, textarea, button { font:inherit; color:inherit; background:transparent; border:1px solid var(--line); border-radius:4px; padding:.3rem .5rem; }
+  select, input[type=number], input[type=text] { width:100%; min-width:0; }
+  input[type=checkbox] { width:auto; }
+  textarea { width:100%; min-height:5rem; font:13px/1.4 ui-monospace, monospace; }
+  textarea.json { min-height:28rem; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit, minmax(9rem, 1fr)); gap:.6rem; }
+  button { cursor:pointer; background:var(--acc); color:#16140f; border-color:var(--acc); font-weight:600; padding:.5rem 1.1rem; }
+  button.ghost { background:transparent; color:var(--fg); border-color:var(--line); font-weight:400; padding:.2rem .55rem; }
+  button.ghost:hover { border-color:var(--acc); }
+  button.danger:hover { border-color:var(--bad); color:var(--bad); }
   button:disabled { opacity:.5; cursor:default; }
-  #est { margin:.75rem 0 0; font-size:.9rem; }
+  .tabs { display:flex; gap:.25rem; border-bottom:1px solid var(--line); margin:0 0 1rem; overflow-x:auto; }
+  .tabs [role=tab] { background:transparent; color:var(--dim); border:1px solid transparent; border-bottom:none; border-radius:6px 6px 0 0; font-weight:400; padding:.45rem .9rem; white-space:nowrap; }
+  .tabs [role=tab][aria-selected=true] { color:var(--fg); border-color:var(--line); background:var(--card); font-weight:600; margin-bottom:-1px; }
+  .strip { display:flex; flex-wrap:wrap; gap:.5rem 1rem; align-items:center; justify-content:space-between; margin:0 0 1rem; }
+  .strip .pick { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .strip select { width:auto; max-width:100%; }
+  #player { margin:0 0 .5rem; }
+  #est { margin:0; font-size:.9rem; }
   #est.warn { color:var(--bad); }
   #status { display:none; align-items:center; gap:.9rem; margin:1rem 0; padding:.9rem 1rem; border:1px solid var(--line); border-radius:6px; }
   #status.on { display:flex; }
@@ -30,7 +43,6 @@
   @keyframes spin { to { transform:rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spin { animation-duration:3s; } }
   #stat { flex:1; min-width:0; }
-  #stat b { font-variant-numeric:tabular-nums; }
   .bar { height:6px; background:var(--line); border-radius:3px; margin-top:.4rem; overflow:hidden; }
   .bar > i { display:block; height:100%; width:0; background:var(--acc); transition:width .25s; }
   #err { color:var(--bad); white-space:pre-wrap; margin:.5rem 0; }
@@ -41,7 +53,27 @@
   .sec { margin:.9rem 0 .2rem; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
   .ln { padding:.05rem .4rem; border-left:3px solid transparent; cursor:pointer; }
   .ln.now { border-left-color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent); }
-  small { color:var(--dim); }
+  small, .dim { color:var(--dim); }
+  .bandgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(9rem, 1fr)); gap:0 .8rem; }
+  details.card { border:1px solid var(--line); border-radius:6px; background:var(--card); margin:0 0 .6rem; }
+  details.card > summary { cursor:pointer; padding:.5rem .75rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; list-style:none; }
+  details.card > summary::-webkit-details-marker { display:none; }
+  details.card > summary::before { content:"\25B8"; color:var(--dim); }
+  details.card[open] > summary::before { content:"\25BE"; }
+  summary .t { font-weight:600; }
+  summary .tools { margin-left:auto; display:flex; gap:.25rem; }
+  .body { padding:0 .75rem .75rem; }
+  .linecard { border-top:1px solid var(--line); padding:.4rem 0 .6rem; }
+  .linecard .hd { display:flex; gap:.4rem; align-items:center; justify-content:space-between; color:var(--dim); font-size:.8rem; }
+  .linecard .tools { display:flex; gap:.25rem; }
+  .cnt { font-variant-numeric:tabular-nums; }
+  .cnt.bad { color:var(--bad); }
+  details.more > summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin-top:.4rem; }
+  .add { margin:.25rem 0 1rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+  #jsonstate { margin:.4rem 0; font-size:.9rem; }
+  #jsonstate.bad { color:var(--bad); }
+  #jsonstate.ok { color:var(--ok); }
+  .jsontools { display:flex; gap:.5rem; flex-wrap:wrap; margin:.5rem 0; }
 </style>
 </head>
 <body>
@@ -49,38 +81,88 @@
   <h1>Electric Sunflowers</h1>
   <p class="sub">The song is written. The engine plays it here, in your browser, one thread, no server. The singer is synthetic.</p>
 
-  <fieldset>
-    <legend>Song</legend>
-    <label for="song">Bundled song</label>
-    <select id="song"></select>
-    <label for="json">Song JSON (replace to use your own)</label>
-    <textarea id="json" spellcheck="false"></textarea>
-    <div class="row">
-      <div><label for="seed">Seed</label><input id="seed" type="number" value="1234" step="1"></div>
-      <div><label for="voice">Voice</label>
-        <select id="voice">
-          <option value="0">the song's own</option><option value="1">bass</option><option value="2">baritone</option>
-          <option value="3">tenor</option><option value="4">alto</option><option value="5">soprano</option>
-        </select></div>
+  <div class="strip">
+    <div class="pick">
+      <label for="song" style="margin:0">Song</label>
+      <select id="song"></select>
+      <button class="ghost" id="newsong" type="button">New</button>
     </div>
     <p id="est">Loading the engine...</p>
-    <button id="go" disabled>Render</button>
-  </fieldset>
-
-  <div id="status" role="status" aria-live="polite">
-    <div class="spin" aria-hidden="true"></div>
-    <div id="stat"><div id="line1"></div><div id="line2"></div><div class="bar"><i id="fill"></i></div></div>
   </div>
-  <div id="err"></div>
 
-  <section id="out" hidden>
-    <audio id="audio" controls></audio>
-    <div id="links"></div>
-    <h2 id="title"></h2>
-    <div class="note" id="note"></div>
-    <div id="lyrics"></div>
+  <div id="player">
+    <fieldset>
+      <legend>Player</legend>
+      <div class="row">
+        <div><label for="seed">Seed</label><input id="seed" type="number" value="1234" step="1"></div>
+        <div><label for="voice">Voice</label>
+          <select id="voice">
+            <option value="0">the song's own</option><option value="1">bass</option><option value="2">baritone</option>
+            <option value="3">tenor</option><option value="4">alto</option><option value="5">soprano</option>
+          </select></div>
+      </div>
+      <p style="margin:.9rem 0 0"><button id="go" disabled>Render</button></p>
+    </fieldset>
+
+    <div id="status" role="status" aria-live="polite">
+      <div class="spin" aria-hidden="true"></div>
+      <div id="stat"><div id="line1"></div><div id="line2"></div><div class="bar"><i id="fill"></i></div></div>
+    </div>
+    <div id="err"></div>
+
+    <section id="out" hidden>
+      <audio id="audio" controls></audio>
+      <div id="links"></div>
+      <h2 id="title"></h2>
+      <div class="note" id="note"></div>
+      <div id="lyrics"></div>
+    </section>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Layers">
+    <button role="tab" id="t-lyrics" aria-controls="p-lyrics" aria-selected="true" type="button">1. Lyrics</button>
+    <button role="tab" id="t-arrangement" aria-controls="p-arrangement" aria-selected="false" tabindex="-1" type="button">2. Arrangement</button>
+    <button role="tab" id="t-json" aria-controls="p-json" aria-selected="false" tabindex="-1" type="button">3. JSON</button>
+  </div>
+
+  <section role="tabpanel" id="p-lyrics" aria-labelledby="t-lyrics">
+    <p class="dim" style="margin-top:0">Write the words as you would say them. One line per sung line; a blank line or a header such as <code>[chorus]</code> starts a section. A header alone repeats the earlier section of that type. The engine composes the melody and the band; key, tempo, voice and band are on the Arrangement layer.</p>
+    <textarea id="lyr" class="json" style="min-height:20rem; font:15px/1.5 system-ui, sans-serif" spellcheck="true" aria-label="Lyrics" placeholder="[verse]&#10;Light the lamps and bar the door&#10;The fiddle's in the corner now&#10;&#10;[chorus]&#10;Roll the barrel in&#10;Roll the barrel in&#10;&#10;[chorus]"></textarea>
+    <div class="row" style="margin-top:.5rem">
+      <div><label for="lyrchords">Chords</label>
+        <select id="lyrchords"><option value="auto">a progression in the song's key</option><option value="keep">keep the chords already in the song</option></select></div>
+      <div><label for="lyrbars">Bars per line</label>
+        <select id="lyrbars"><option value="0">by line length</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></div>
+    </div>
+    <p id="lyrinfo" class="dim" style="margin:.6rem 0"></p>
+    <div class="add">
+      <button id="sing" type="button">Sing it</button>
+      <button class="ghost" id="lyrapply" type="button">Put in the song</button>
+      <button class="ghost" id="lyrfrom" type="button">Read lyrics from the song</button>
+    </div>
+    <details class="more"><summary>How the words are split</summary>
+      <p class="dim" style="margin:.4rem 0 0">Words are split into syllables by a rule of thumb, and the engine stresses the first syllable of each long word and each content word. English is irregular: where it is wrong, write the hyphens yourself (<code>or-ange</code>), mark stress with <code>*</code> before a syllable (<code>*to-day</code>) and hold a syllable over 2 to 4 notes with <code>~</code> or <code>~3</code>. Text you hyphenate is left as written. The Arrangement layer shows the result per line.</p></details>
   </section>
-  <p><small>Rendering is deterministic: the same song, seed and voice give the same recording here. It is not bit-identical to the native build (different math library, no flush-to-zero); the difference is 132 dB below the signal.</small></p>
+
+  <section role="tabpanel" id="p-arrangement" aria-labelledby="t-arrangement" hidden>
+    <p class="dim" style="margin-top:0">How the song is played: key, tempo, the band, the singers, then each section with its chords, energy and melody hints. Anything left on auto is decided by the engine, the same way every time for a given seed.</p>
+    <div id="p-song"></div>
+    <h2 style="margin-top:1rem">Sections</h2>
+    <div id="p-sections"></div>
+  </section>
+
+  <section role="tabpanel" id="p-json" aria-labelledby="t-json" hidden>
+    <p class="dim" style="margin-top:0">The song as the engine reads it. Edits here update the other tabs as soon as the JSON parses; fields the editor does not show are kept.</p>
+    <textarea id="json" class="json" spellcheck="false" aria-label="Song JSON"></textarea>
+    <div id="jsonstate" role="status"></div>
+    <div class="jsontools">
+      <button class="ghost" id="dl" type="button">Download JSON</button>
+      <button class="ghost" id="open" type="button">Open JSON file</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+    </div>
+  </section>
+
+  <p><small>Rendering is deterministic: the same song, seed and voice give the same recording here. It is not bit-identical to the native build (different math library, no flush-to-zero); the difference is 132 dB below the signal. Your edits are kept in this browser.</small></p>
 </main>
 <script type="module">
 import { wav16 } from './sunflower.js';
@@ -91,8 +173,555 @@ const BASE_MB = 60, PER_S_MB = 2.8;
 const mb = (b) => (b / 1048576).toFixed(0) + ' MB';
 const fmtT = (s) => { s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
-let worker = null, ready = false, probeTimer = 0, tick = 0, t0 = 0, url = null, lines = [];
+// ---- Vocabulary (crates/song/src/model.rs and schema.rs) ----
+const MODES = ['major', 'minor', 'dorian', 'mixolydian'];
+const METERS = ['4/4', '3/4', '6/8'];
+const GUITARS = ['strum', 'fingerpick', 'travis', 'arpeggio'];
+const VOICES = ['bass', 'baritone', 'tenor', 'alto', 'soprano'];
+const DRUMS = ['none', 'brushes', 'soft', 'full'];
+const KINDS = ['intro', 'verse', 'prechorus', 'chorus', 'bridge', 'interlude', 'outro'];
+const INSTRUMENTAL = ['intro', 'interlude', 'outro'];
+const ENERGY = ['quiet', 'low', 'mid', 'high'];
+const RUBATO = ['steady', 'light', 'free'];
+const SING = ['A', 'B', 'both', 'choir'];
+const SINGER = ['A', 'B'];
+const BLEND = ['harmony', 'octave'];
+const VOICING = ['unison', 'block'];
+const DELIVERY = ['legato', 'flowing', 'parlando', 'detached'];
+const ENDINGS = ['held', 'released', 'clipped'];
+const BAND = [['bass', 'String bass'], ['harmonyGuitar', 'Harmony guitar'], ['harp', 'Harp'], ['violin', 'Violin'], ['choir', 'Choir'], ['harmonies', 'Harmony voice'], ['doubles', 'Doubled lead']];
+const KEYS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const DRAFT = 'sunflower.draft';
 
+const blankSong = () => ({
+  schema_version: 3, title: 'Untitled', note: '', key: 'G', mode: 'major', meter: '4/4', tempo: 100,
+  guitar: 'strum', voice: 'baritone',
+  band: { drums: 'none', bass: false, harmonyGuitar: false, harp: false, violin: false, choir: false, harmonies: false, doubles: false },
+  sections: [
+    { type: 'verse', lines: [{ syl: '*hel-lo *world', chords: ['G', 'D'] }] },
+  ],
+});
+
+// ---- Small DOM helper ----
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'text') e.textContent = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+let uid = 0;
+const nextId = () => 'f' + (++uid);
+function labelled(text, control, cls) {
+  const id = nextId(); control.id = id;
+  return h('div', { class: cls }, h('label', { for: id, text }), control);
+}
+
+// ---- Song state ----
+let song = blankSong();
+let ready = false, worker = null, probeTimer = 0, saveTimer = 0, tick = 0, t0 = 0, url = null, lines = [], jsonOk = true, lastReq = '';
+const openSecs = new WeakSet();
+
+const text = () => JSON.stringify(song, null, 1);
+function changed(opts = {}) {
+  if (!opts.fromJson) { $('json').value = text(); setJsonState(true); }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { localStorage.setItem(DRAFT, text()); } catch (e) { /* storage blocked */ } }, 400);
+  probe();
+}
+
+// Bind a control to obj[key]. Empty optional values delete the key.
+function bind(ctl, obj, key, o = {}) {
+  const read = () => {
+    if (ctl.type === 'checkbox') return ctl.checked;
+    const v = ctl.value;
+    if (o.num) return v === '' ? undefined : Number(v);
+    return v;
+  };
+  if (ctl.type === 'checkbox') ctl.checked = !!obj[key];
+  else if (obj[key] != null) ctl.value = obj[key];
+  ctl.addEventListener(ctl.tagName === 'SELECT' || ctl.type === 'checkbox' ? 'change' : 'input', () => {
+    const v = read();
+    if (v === undefined || (o.optional && (v === '' || v === false))) delete obj[key]; else obj[key] = v;
+    if (o.after) o.after();
+    changed();
+  });
+  return ctl;
+}
+function sel(values, cur, o = {}) {
+  const s = h('select');
+  if (o.blank != null) s.append(h('option', { value: '', text: o.blank }));
+  for (const v of values) s.append(h('option', { value: v, text: v }));
+  if (cur != null && !values.includes(cur)) s.append(h('option', { value: cur, text: String(cur) }));
+  return s;
+}
+const chordText = (a) => (Array.isArray(a) ? a.join(', ') : '');
+const parseChords = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
+function bindChords(ctl, obj, key) {
+  ctl.value = chordText(obj[key]);
+  ctl.addEventListener('input', () => {
+    const c = parseChords(ctl.value);
+    if (c.length) obj[key] = c; else delete obj[key];
+    changed();
+  });
+  return ctl;
+}
+// Syllables of a lyric: words split on spaces, syllables on hyphens; ~N adds N-1 notes.
+function countNotes(syl) {
+  let n = 0;
+  for (const w of (syl || '').split(/\s+/).filter(Boolean)) {
+    for (const s of w.split('-').filter(Boolean)) {
+      const m = s.match(/~(\d?)/);
+      n += m ? Math.min(4, Math.max(2, Number(m[1]) || 2)) : 1;
+    }
+  }
+  return n;
+}
+const tuneNotes = (t) => (t || '').split(/\s+/).filter((x) => x && x !== '-').length;
+
+// ---- Song tab ----
+function buildSong() {
+  const p = $('p-song'); p.textContent = '';
+  const band = (song.band ||= {});
+  const idf = h('fieldset', null, h('legend', { text: 'Identity' }),
+    labelled('Title', bind(h('input', { type: 'text' }), song, 'title')),
+    labelled('Liner note', bind(h('textarea', { rows: 3 }), song, 'note', { optional: true })));
+  const keyIn = h('input', { type: 'text', list: 'keys' });
+  const mus = h('fieldset', null, h('legend', { text: 'Music' }),
+    h('datalist', { id: 'keys' }, KEYS.map((k) => h('option', { value: k }))),
+    h('div', { class: 'row' },
+      labelled('Key', bind(keyIn, song, 'key')),
+      labelled('Mode', bind(sel(MODES, song.mode), song, 'mode')),
+      labelled('Meter', bind(sel(METERS, song.meter), song, 'meter')),
+      labelled('Tempo (bpm)', bind(h('input', { type: 'number', min: 40, max: 240, step: 1 }), song, 'tempo', { num: true })),
+      labelled('Guitar', bind(sel(GUITARS, song.guitar), song, 'guitar')),
+      labelled('Rubato', bind(sel(RUBATO, song.rubato, { blank: 'steady (default)' }), song, 'rubato', { optional: true })),
+      labelled('Schema', bind(sel(['1', '2', '3'], String(song.schema_version ?? '')), song, 'schema_version', { num: true, optional: true }))));
+  const bandBox = h('fieldset', null, h('legend', { text: 'Band' }),
+    h('div', { class: 'row' }, labelled('Drums', bind(sel(DRUMS, band.drums), band, 'drums'))),
+    h('div', { class: 'bandgrid' }, BAND.map(([k, name]) =>
+      h('label', { class: 'chk' }, bind(h('input', { type: 'checkbox' }), band, k), name))));
+  const ph = (song.phrasing ||= null);
+  const phr = h('fieldset', null, h('legend', { text: 'Singers' }),
+    h('div', { class: 'row' },
+      labelled('Voice', bind(sel(VOICES, song.voice), song, 'voice')),
+      labelled('Delivery', phrasingSel('delivery', DELIVERY, 'flowing')),
+      labelled('Phrase endings', phrasingSel('endings', ENDINGS, 'released')),
+      labelled('Second singer (B)', duetSel())));
+  if (song.phrasing === null) delete song.phrasing;
+  const arr = h('fieldset', null, h('legend', { text: 'Note to the arranger' }),
+    bind(h('textarea', { rows: 5, 'aria-label': 'Arranging note' }), song, 'arranging', { optional: true }),
+    h('small', { text: 'Plain words: feel, what each instrument does, where the energy peaks. Read only by the arranger pass; the rule-based engine ignores it.' }));
+  p.append(idf, mus, bandBox, phr, arr);
+}
+function phrasingSel(key, values, dflt) {
+  const s = sel(values, song.phrasing && song.phrasing[key], { blank: `${dflt} (default)` });
+  s.value = (song.phrasing && song.phrasing[key]) || '';
+  s.addEventListener('change', () => {
+    const ph = (song.phrasing ||= {});
+    if (s.value) ph[key] = s.value; else delete ph[key];
+    if (!Object.keys(ph).length) delete song.phrasing;
+    changed();
+  });
+  return s;
+}
+function duetSel() {
+  const s = sel(VOICES, song.duet && song.duet.voice, { blank: 'none (solo)' });
+  s.value = (song.duet && song.duet.voice) || '';
+  s.addEventListener('change', () => {
+    if (s.value) song.duet = { ...(song.duet || {}), voice: s.value }; else delete song.duet;
+    changed();
+  });
+  return s;
+}
+
+// ---- Sections tab ----
+function secSummary(s, i) {
+  const parts = [`${i + 1}. ${s.type || '?'}`];
+  if (s.same) parts.push('same as before');
+  else if (Array.isArray(s.lines)) parts.push(`${s.lines.length} line${s.lines.length === 1 ? '' : 's'}`);
+  else if (Array.isArray(s.chords)) parts.push(`${s.chords.length} bars`);
+  if (s.energy) parts.push(s.energy);
+  if (s.key) parts.push('key ' + s.key);
+  return parts;
+}
+function move(arr, i, d) {
+  const j = i + d; if (j < 0 || j >= arr.length) return false;
+  [arr[i], arr[j]] = [arr[j], arr[i]]; return true;
+}
+function tools(btns) { return h('span', { class: 'tools', onclick: (e) => e.stopPropagation() }, btns); }
+function tb(label, title, fn, cls = '') {
+  return h('button', { type: 'button', class: 'ghost ' + cls, title, 'aria-label': title, text: label, onclick: (e) => { e.preventDefault(); e.stopPropagation(); fn(); } });
+}
+
+function buildSections() {
+  const p = $('p-sections'); p.textContent = '';
+  const secs = (song.sections ||= []);
+  p.append(h('datalist', { id: 'tunenames' }, Object.keys(tunesObject()).map((n) => h('option', { value: n }))));
+  secs.forEach((s, i) => p.append(sectionCard(s, i, secs)));
+  p.append(h('div', { class: 'add' },
+    h('button', { type: 'button', text: 'Add verse', onclick: () => addSection('verse') }),
+    h('button', { type: 'button', class: 'ghost', text: 'Add chorus', onclick: () => addSection('chorus') }),
+    h('button', { type: 'button', class: 'ghost', text: 'Add instrumental', onclick: () => addSection('interlude') })));
+  p.append(tunesBox());
+}
+function addSection(kind) {
+  const s = INSTRUMENTAL.includes(kind) ? { type: kind, chords: ['G', 'D'] } : { type: kind, lines: [{ syl: '', chords: [] }] };
+  song.sections.push(s); openSecs.add(s); rebuild(); changed();
+}
+function rebuild() { buildSections(); }
+
+function sectionCard(s, i, secs) {
+  const d = h('details', { class: 'card' });
+  if (openSecs.has(s)) d.open = true;
+  d.addEventListener('toggle', () => { if (d.open) openSecs.add(s); else openSecs.delete(s); });
+  const sum = h('summary', null,
+    h('span', { class: 't', text: secSummary(s, i)[0] }),
+    h('span', { class: 'dim', text: secSummary(s, i).slice(1).join(' · ') }),
+    tools([
+      tb('↑', 'Move section up', () => { if (move(secs, i, -1)) { rebuild(); changed(); } }),
+      tb('↓', 'Move section down', () => { if (move(secs, i, 1)) { rebuild(); changed(); } }),
+      tb('Copy', 'Duplicate section', () => { const c = structuredClone(s); secs.splice(i + 1, 0, c); openSecs.add(c); rebuild(); changed(); }),
+      tb('×', 'Delete section', () => { if (confirm('Delete this section?')) { secs.splice(i, 1); rebuild(); changed(); } }, 'danger'),
+    ]));
+  const resum = () => {
+    const x = secSummary(s, i);
+    sum.querySelector('.t').textContent = x[0];
+    sum.querySelector('.dim').textContent = x.slice(1).join(' · ');
+  };
+  const instr = INSTRUMENTAL.includes(s.type) || (!s.lines && !s.same);
+  const body = h('div', { class: 'body' });
+  const typeSel = bind(sel(KINDS, s.type), s, 'type', { after: () => { resum(); rebuildBody(); } });
+  const head = h('div', { class: 'row' },
+    labelled('Type', typeSel),
+    labelled('Energy', bind(sel(ENERGY, s.energy, { blank: 'auto (builds up)' }), s, 'energy', { optional: true, after: resum })),
+    labelled('Key from here', bind(h('input', { type: 'text', list: 'keys', placeholder: 'unchanged' }), s, 'key', { optional: true, after: resum })),
+    labelled('Rubato', bind(sel(RUBATO, s.rubato, { blank: 'inherit' }), s, 'rubato', { optional: true })));
+  const same = h('label', { class: 'chk' }, bind(h('input', { type: 'checkbox' }), s, 'same', { optional: true, after: () => { resum(); rebuildBody(); } }), 'Same as an earlier section of this type (copy its lines and chords)');
+  const dynamic = h('div');
+  function rebuildBody() {
+    dynamic.textContent = '';
+    const isInstr = INSTRUMENTAL.includes(s.type);
+    const lead = h('div', { class: 'row' });
+    if (!isInstr && !s.same) {
+      lead.append(
+        labelled('Sung by', bind(sel(SING, s.sing, { blank: 'default (A)' }), s, 'sing', { optional: true, after: rebuildBody })),
+        labelled('Tune (name or solfege)', tuneInput(s, 'tune')));
+      if (s.sing === 'choir') lead.append(labelled('Choir voicing', bind(sel(VOICING, s.voicing, { blank: 'unison' }), s, 'voicing', { optional: true })));
+    }
+    if (isInstr && !s.same) lead.append(labelled('Tune the lead plays', tuneInput(s, 'tune')));
+    if (isInstr || (!s.lines && !s.same)) {
+      if (!s.same) lead.append(labelled('Chords by bar (comma-separated)', bindChords(h('input', { type: 'text', placeholder: 'G, C G, D' }), s, 'chords')));
+    }
+    dynamic.append(lead);
+    if (!isInstr && !s.same) dynamic.append(linesEditor(s, resum));
+    if (s.same && !isInstr) dynamic.append(h('p', { class: 'dim', text: 'Copies the lines of the last earlier section of this type. Set a key above to move its chords.' }));
+  }
+  body.append(head, same, dynamic);
+  rebuildBody();
+  d.append(sum, body);
+  return d;
+}
+function tuneInput(obj, key) {
+  return bind(h('input', { type: 'text', list: 'tunenames', placeholder: 'optional', spellcheck: 'false' }), obj, key, { optional: true });
+}
+
+function linesEditor(s, resum) {
+  const box = h('div');
+  const arr = (s.lines ||= []);
+  const draw = () => {
+    box.textContent = '';
+    arr.forEach((ln, i) => box.append(lineCard(ln, i, arr, draw, resum)));
+    box.append(h('div', { class: 'add' },
+      h('button', { type: 'button', class: 'ghost', text: 'Add line', onclick: () => { arr.push({ syl: '', chords: [] }); draw(); resum(); changed(); } })));
+  };
+  draw();
+  return box;
+}
+function lineCard(ln, i, arr, draw, resum) {
+  const cnt = h('span', { class: 'cnt' });
+  const upd = () => {
+    const n = countNotes(ln.syl), tn = tuneNotes(ln.tune);
+    cnt.textContent = `${n} note${n === 1 ? '' : 's'}` + (ln.tune ? ` · tune ${tn}` : '');
+    cnt.classList.toggle('bad', !!ln.tune && tn !== n);
+  };
+  const syl = bind(h('input', { type: 'text', placeholder: '*write the *lyr-ics with a * before each stressed syl-la-ble', spellcheck: 'false' }), ln, 'syl', { after: upd });
+  const tune = bind(h('input', { type: 'text', placeholder: 'd r m ...  (optional)', spellcheck: 'false' }), ln, 'tune', { optional: true, after: upd });
+  const more = h('details', { class: 'more' }, h('summary', { text: 'Phonemes and singers' }),
+    h('div', { class: 'row' },
+      labelled('Sung by', bind(sel(SING, ln.sing, { blank: 'section default' }), ln, 'sing', { optional: true })),
+      labelled('Lead', bind(sel(SINGER, ln.lead, { blank: 'default' }), ln, 'lead', { optional: true })),
+      labelled('Blend', bind(sel(BLEND, ln.blend, { blank: 'default' }), ln, 'blend', { optional: true })),
+      labelled('Choir voicing', bind(sel(VOICING, ln.voicing, { blank: 'default' }), ln, 'voicing', { optional: true }))),
+    labelled('ARPAbet per syllable (blank: the engine spells it)', bind(h('input', { type: 'text', spellcheck: 'false', placeholder: 'l ay t|dh ax|l ae m p s' }), ln, 'ph', { optional: true })));
+  const card = h('div', { class: 'linecard' },
+    h('div', { class: 'hd' }, h('span', { text: `Line ${i + 1}` }), cnt,
+      tools([
+        tb('↑', 'Move line up', () => { if (move(arr, i, -1)) { draw(); changed(); } }),
+        tb('↓', 'Move line down', () => { if (move(arr, i, 1)) { draw(); changed(); } }),
+        tb('×', 'Delete line', () => { arr.splice(i, 1); draw(); resum(); changed(); }, 'danger'),
+      ])),
+    labelled('Lyric', syl),
+    h('div', { class: 'row' },
+      labelled('Chords (comma-separated, one entry per bar)', bindChords(h('input', { type: 'text', placeholder: 'G, C G' }), ln, 'chords')),
+      labelled('Tune in solfege', tune)),
+    more);
+  upd();
+  return card;
+}
+
+// Named tunes: stored as an object {NAME: [lines]}; an array of {name, lines} is converted.
+function tunesObject() {
+  if (Array.isArray(song.tunes)) {
+    const o = {}; for (const t of song.tunes) if (t && t.name) o[t.name] = t.lines || [];
+    song.tunes = o;
+  }
+  return song.tunes && typeof song.tunes === 'object' ? song.tunes : {};
+}
+function tunesBox() {
+  const tunes = tunesObject();
+  const fs = h('fieldset', null, h('legend', { text: 'Named tunes' }));
+  fs.append(h('p', { class: 'dim', style: 'margin:.2rem 0', text: 'One melody for several sections: give it a name here, then type the name in a section’s tune field. One line per tune line.' }));
+  for (const name of Object.keys(tunes)) {
+    const ta = h('textarea', { rows: Math.min(8, Math.max(2, (tunes[name] || []).length)), spellcheck: 'false', 'aria-label': 'Tune ' + name });
+    ta.value = (Array.isArray(tunes[name]) ? tunes[name] : [String(tunes[name])]).join('\n');
+    ta.addEventListener('input', () => { tunes[name] = ta.value.split('\n').map((x) => x.trim()).filter(Boolean); changed(); });
+    fs.append(h('div', null,
+      h('div', { style: 'display:flex; justify-content:space-between; align-items:end' }, h('label', { text: name }),
+        tb('×', 'Delete tune ' + name, () => { delete tunes[name]; if (!Object.keys(tunes).length) delete song.tunes; buildSections(); changed(); }, 'danger')),
+      ta));
+  }
+  const nm = h('input', { type: 'text', placeholder: 'name, e.g. V', 'aria-label': 'New tune name', style: 'max-width:12rem' });
+  fs.append(h('div', { class: 'add' }, nm, h('button', { type: 'button', class: 'ghost', text: 'Add tune', onclick: () => {
+    const n = nm.value.trim(); if (!n) return;
+    (song.tunes = tunesObject())[n] = [];
+    if (Array.isArray(song.tunes)) song.tunes = {};
+    song.tunes[n] ||= [];
+    buildSections(); changed();
+  } })));
+  return fs;
+}
+
+// ---- Tabs ----
+const TABS = ['lyrics', 'arrangement', 'json'];
+function showTab(name, focus) {
+  for (const t of TABS) {
+    const on = t === name;
+    $('t-' + t).setAttribute('aria-selected', on); $('t-' + t).tabIndex = on ? 0 : -1;
+    $('p-' + t).hidden = !on;
+  }
+  if (focus) $('t-' + name).focus();
+  try { sessionStorage.setItem('sunflower.tab', name); } catch (e) { /* ignore */ }
+}
+for (const t of TABS) {
+  $('t-' + t).onclick = () => showTab(t);
+  $('t-' + t).onkeydown = (e) => {
+    const i = TABS.indexOf(t);
+    if (e.key === 'ArrowRight') showTab(TABS[(i + 1) % TABS.length], true);
+    else if (e.key === 'ArrowLeft') showTab(TABS[(i + TABS.length - 1) % TABS.length], true);
+  };
+}
+
+// ---- JSON tab ----
+function setJsonState(ok, msg) {
+  jsonOk = ok;
+  const s = $('jsonstate');
+  s.className = ok ? 'ok' : 'bad';
+  s.textContent = ok ? 'Valid JSON.' : msg;
+  $('t-json').textContent = ok ? '3. JSON' : '3. JSON (error)';
+  if (!ok) { $('go').disabled = true; $('est').className = 'warn'; $('est').textContent = 'The JSON tab has a syntax error: ' + msg; }
+  else $('go').disabled = !ready;
+}
+$('json').addEventListener('input', () => {
+  let v;
+  try { v = JSON.parse($('json').value); if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('the song must be an object'); }
+  catch (e) { setJsonState(false, e.message); return; }
+  song = v; setJsonState(true); buildAll(); changed({ fromJson: true });
+});
+$('dl').onclick = () => {
+  const a = h('a', { href: URL.createObjectURL(new Blob([text() + '\n'], { type: 'application/json' })), download: ((song.title || 'song').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'song') + '.json' });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('open').onclick = () => $('file').click();
+$('file').onchange = async () => {
+  const f = $('file').files[0]; if (!f) return;
+  try { setSong(JSON.parse(await f.text())); $('song').value = ''; } catch (e) { setJsonState(false, 'could not read ' + f.name + ': ' + e.message); }
+  $('file').value = '';
+};
+
+function buildAll() { buildSong(); buildSections(); }
+function setSong(v) { song = v; $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true }); }
+
+
+// ---- Lyrics tab: plain words in, song sections out ----
+const SPLITS = { every: 'ev-ry', evening: 'eve-ning', fire: 'fire', hour: 'hour', our: 'our', radio: 'ra-di-o', idea: 'i-de-a', area: 'a-re-a', quiet: 'qui-et', lion: 'li-on', riot: 'ri-ot', poem: 'po-em', being: 'be-ing', seeing: 'see-ing', going: 'go-ing', doing: 'do-ing', coming: 'com-ing', people: 'peo-ple', beautiful: 'beau-ti-ful', different: 'dif-frent', family: 'fam-ly', business: 'busi-ness', heaven: 'heav-en', over: 'o-ver', river: 'riv-er', lonely: 'lone-ly', only: 'on-ly', evermore: 'ev-er-more', fiddle: 'fid-dle', harbor: 'har-bor', somewhere: 'some-where', nowhere: 'no-where', everyone: 'ev-ry-one', everything: 'ev-ry-thing', anyone: 'an-y-one', anything: 'an-y-thing', someone: 'some-one', something: 'some-thing', into: 'in-to', onto: 'on-to', maybe: 'may-be', again: 'a-gain', away: 'a-way', alone: 'a-lone', tonight: 'to-night', today: 'to-day', tomorrow: 'to-mor-row' };
+const BLEND2 = new Set(['bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'pl', 'pr', 'sc', 'sk', 'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'tr', 'tw', 'th', 'ch', 'sh', 'ph', 'wh', 'qu', 'kn', 'wr', 'dl', 'tl', 'zl', 'kl']);
+const BLEND3 = new Set(['str', 'spr', 'scr', 'spl', 'thr', 'chr', 'shr', 'sch', 'squ']);
+const isV = (c) => 'aeiou'.includes(c);
+
+function syllabifyWord(w) {
+  if (/[-*~]/.test(w)) return w; // the writer marked it
+  const lw = w.toLowerCase().replace(/’/g, "'");
+  if (SPLITS[lw]) return applySplits(w, SPLITS[lw]);
+  // vowel groups; y is a vowel except at the start of a word
+  const groups = [];
+  for (let i = 0; i < lw.length; i++) {
+    const c = lw[i];
+    const v = isV(c) || (c === 'y' && i > 0 && !isV(lw[i - 1]) ) || (c === 'y' && i > 0 && isV(lw[i - 1]) && false);
+    const quU = c === 'u' && i > 0 && lw[i - 1] === 'q';
+    if ((v || (isV(c))) && !quU) {
+      if (groups.length && groups[groups.length - 1][1] === i) groups[groups.length - 1][1] = i + 1; else groups.push([i, i + 1]);
+    }
+  }
+  if (groups.length <= 1) return w;
+  const last = groups[groups.length - 1];
+  const endsAt = last[1] === lw.length || (last[1] === lw.length - 1 && lw.endsWith('s') && /[^s]s$/.test(lw));
+  if (last[1] === lw.length) {
+    const g = lw.slice(last[0], last[1]), before = lw[last[0] - 1];
+    if (g === 'e' && before && !isV(before) && !(before === 'l' && lw[last[0] - 2] && !isV(lw[last[0] - 2]))) groups.pop(); // silent final e
+  } else if (endsAt || lw.endsWith('ed')) {
+    const g = lw.slice(last[0], last[1]), before = lw[last[0] - 1];
+    if (last[1] === lw.length - 1 && g === 'e' && lw.endsWith('es') && before && !isV(before) && !'sxzcgh'.includes(before)) groups.pop();
+    else if (last[1] === lw.length - 1 && g === 'e' && lw.endsWith('ed') && before && !isV(before) && !'td'.includes(before)) groups.pop();
+  }
+  if (groups.length <= 1) return w;
+  const cuts = [];
+  for (let k = 0; k + 1 < groups.length; k++) {
+    const a = groups[k][1], b = groups[k + 1][0], cl = lw.slice(a, b), L = cl.length;
+    let cut;
+    if (L <= 1) cut = a;
+    else if (/(ck|ng|tch)$/.test(cl) && L === (cl.match(/(ck|ng|tch)$/)[0].length)) cut = b;
+    else if (L >= 3 && BLEND3.has(cl.slice(-3))) cut = b - 3;
+    else if (BLEND2.has(cl.slice(-2)) && cl.slice(-2)[0] !== cl.slice(-2)[1]) cut = b - 2;
+    else cut = b - 1;
+    cuts.push(Math.max(cut, a));
+  }
+  let out = '', p = 0;
+  for (const c of cuts) { out += w.slice(p, c) + '-'; p = c; }
+  return out + w.slice(p);
+}
+function applySplits(w, pat) { // pattern's letters equal the word's lowercase letters; copy its hyphens onto w
+  let out = '', j = 0;
+  for (const ch of pat) { if (ch === '-') out += '-'; else { out += w[j] ?? ch; j++; } }
+  return out + w.slice(j);
+}
+function cleanWord(t) { return t.replace(/[^A-Za-z0-9'’\-*~]/g, '').replace(/^-+|-+$/g, ''); }
+function syllabifyLine(line) {
+  return line.split(/\s+/).map(cleanWord).filter((x) => /[A-Za-z0-9]/.test(x)).map(syllabifyWord).join(' ');
+}
+
+const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+// Four-chord cycles by mode: [semitones above the tonic, quality].
+const CYCLE = {
+  major: [[0, ''], [7, ''], [9, 'm'], [5, '']],
+  minor: [[0, 'm'], [8, ''], [3, ''], [10, '']],
+  dorian: [[0, 'm'], [5, ''], [0, 'm'], [10, '']],
+  mixolydian: [[0, ''], [10, ''], [5, ''], [0, '']],
+};
+function progression() {
+  const m = String(song.key || 'G').trim().match(/^([A-Ga-g])([#b]?)/);
+  const root = m ? (PC[m[1].toUpperCase()] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + 12) % 12 : 7;
+  const mode = MODES.includes(song.mode) ? song.mode : 'major';
+  const minorish = mode !== 'major' && mode !== 'mixolydian';
+  const flats = (m && m[2] === 'b') || (m && !m[2] && ['F'].includes(m[1].toUpperCase())) || (minorish && [0, 2, 5, 7, 10].includes(root) && !(m && m[2] === '#'));
+  const names = flats ? FLAT_NAMES : SHARP_NAMES;
+  return CYCLE[mode].map(([o, q]) => names[(root + o) % 12] + q);
+}
+function parseLyrics(src) {
+  const blocks = []; let cur = null;
+  const flush = () => { if (cur) blocks.push(cur); cur = null; };
+  for (const raw of src.split(/\r?\n/)) {
+    const line = raw.trim();
+    const hd = line.match(/^\[([^\]]*)\]$/) || line.match(/^(verse|chorus|bridge|intro|outro|interlude|pre-?chorus|refrain)\s*\d*\s*:$/i);
+    if (hd) { flush(); cur = { type: kindOf(hd[1]), lines: [], headed: true }; }
+    else if (!line) { if (cur && cur.lines.length) flush(); }
+    else { if (!cur) cur = { type: 'verse', lines: [] }; cur.lines.push(line); }
+  }
+  flush();
+  return blocks;
+}
+function kindOf(t) {
+  const x = t.toLowerCase().replace(/[^a-z]/g, '');
+  if (x.startsWith('pre')) return 'prechorus';
+  if (x.startsWith('chor') || x.startsWith('refrain') || x.startsWith('hook')) return 'chorus';
+  return KINDS.find((k) => x.startsWith(k)) || 'verse';
+}
+function barsFor(syl, forced) {
+  if (forced) return forced;
+  const n = countNotes(syl);
+  return n <= 4 ? 1 : n <= 10 ? 2 : 4;
+}
+function lyricsToSections(src, auto, forced) {
+  const prog = progression(), seen = new Set(), out = [];
+  for (const b of parseLyrics(src)) {
+    if (!b.lines.length) {
+      if (seen.has(b.type) && !INSTRUMENTAL.includes(b.type)) out.push({ type: b.type, same: true });
+      else if (INSTRUMENTAL.includes(b.type)) out.push({ type: b.type, chords: prog.slice() });
+      else out.push({ type: b.type, lines: [{ syl: '', chords: [] }] });
+      continue;
+    }
+    let bar = 0;
+    const ls = b.lines.map((t) => {
+      const syl = syllabifyLine(t);
+      const line = { syl };
+      if (auto) { const n = barsFor(syl, forced); line.chords = Array.from({ length: n }, () => prog[bar++ % prog.length]); }
+      else line.chords = [];
+      return line;
+    }).filter((l) => l.syl);
+    if (ls.length) { out.push({ type: b.type, lines: ls }); seen.add(b.type); }
+  }
+  return out;
+}
+function sectionsToLyrics() {
+  const parts = [], seen = new Set();
+  for (const s of song.sections || []) {
+    if (s.same || !s.lines || !s.lines.length) { parts.push(`[${s.type}]`); continue; }
+    const body = s.lines.map((l) => (l.syl || '').replace(/[*]/g, '').replace(/~\d?/g, '').replace(/-/g, '').replace(/\s+/g, ' ').trim()).join('\n');
+    parts.push(`[${s.type}]\n${body}`); seen.add(s.type);
+  }
+  return parts.join('\n\n');
+}
+function lyricInfo() {
+  const blocks = parseLyrics($('lyr').value);
+  const n = blocks.reduce((a, b) => a + b.lines.length, 0);
+  const syl = blocks.reduce((a, b) => a + b.lines.reduce((x, t) => x + countNotes(syllabifyLine(t)), 0), 0);
+  const dense = blocks.some((b) => b.lines.some((t) => countNotes(syllabifyLine(t)) > 18));
+  $('lyrinfo').textContent = n ? `${n} line${n === 1 ? '' : 's'}, about ${syl} syllables` + (dense ? '. A line with more than 18 syllables will be sung very fast; split it.' : '.') : '';
+}
+function applyLyrics() {
+  const src = $('lyr').value;
+  const keep = $('lyrchords').value === 'keep';
+  const old = (song.sections || []).filter((s) => s.lines).flatMap((s) => s.lines.map((l) => l.chords));
+  let secs = lyricsToSections(src, !keep, Number($('lyrbars').value));
+  if (!secs.some((s) => s.lines)) { $('err').textContent = ''; $('lyrinfo').textContent = 'Write at least one line first.'; return false; }
+  if (keep) { let i = 0; for (const s of secs) for (const l of s.lines || []) l.chords = (old[i++] || []).slice(); }
+  if (keep && !secs.some((s) => (s.lines || []).some((l) => l.chords.length)) && !secs.some((s) => s.chords)) {
+    secs = lyricsToSections(src, true, Number($('lyrbars').value));
+  }
+  song.sections = secs; $('song').value = '';
+  if (song.schema_version == null) song.schema_version = 3;
+  $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true });
+  return true;
+}
+$('lyr').addEventListener('input', () => { lyricInfo(); try { localStorage.setItem('sunflower.lyrics', $('lyr').value); } catch (e) { /* ignore */ } });
+$('lyrapply').onclick = () => { if (applyLyrics()) { showTab('arrangement'); } };
+$('sing').onclick = () => {
+  if (!applyLyrics()) return;
+  if (ready && jsonOk) { $('go').click(); $('player').scrollIntoView({ block: 'nearest' }); }
+};
+$('lyrfrom').onclick = () => {
+  if ($('lyr').value.trim() && !confirm('Replace the text here with the lyrics of the song?')) return;
+  $('lyr').value = sectionsToLyrics(); lyricInfo();
+};
+
+// ---- Engine worker ----
 function spawn() {
   ready = false; $('go').disabled = true;
   worker = new Worker('./worker.js', { type: 'module' });
@@ -100,15 +729,18 @@ function spawn() {
   worker.onerror = (e) => fail('worker: ' + (e.message || 'failed to start'), true);
   worker.postMessage({ type: 'init', url: new URL('./webrender.wasm', location.href).href });
 }
-const ask = (type, extra = {}) => worker.postMessage({ type, json: $('json').value, seed: Number($('seed').value) || 0, voice: Number($('voice').value), ...extra });
+const ask = (type, extra = {}) => { lastReq = type; worker.postMessage({ type, json: $('json').value, seed: Number($('seed').value) || 0, voice: Number($('voice').value), ...extra }); };
 
 function onMsg(e) {
   const d = e.data;
-  if (d.type === 'ready') { ready = true; $('go').disabled = false; probe(); }
+  if (d.type === 'ready') { ready = true; $('go').disabled = !jsonOk; probe(); }
   else if (d.type === 'probed') estimate(d.seconds);
   else if (d.type === 'progress') progress(d);
   else if (d.type === 'done') done(d);
-  else if (d.type === 'error') fail(d.message, d.fatal);
+  else if (d.type === 'error') {
+    if (lastReq === 'probe' && !d.fatal) { $('est').className = 'warn'; $('est').textContent = 'The engine cannot read this song yet: ' + d.message; }
+    else fail(d.message, d.fatal);
+  }
 }
 
 function estimate(sec) {
@@ -122,8 +754,8 @@ function estimate(sec) {
 }
 function probe() {
   clearTimeout(probeTimer);
-  if (!ready) return;
-  probeTimer = setTimeout(() => ask('probe'), 150);
+  if (!ready || !jsonOk) return;
+  probeTimer = setTimeout(() => ask('probe'), 250);
 }
 
 function setStatus(on, idle) { $('status').classList.toggle('on', on); $('status').classList.toggle('idle', !!idle); }
@@ -150,7 +782,7 @@ function done(d) {
   $('line1').innerHTML = `Done in <b>${secs} s</b>. Peak engine memory <b>${mb(d.mem)}</b>.`;
   $('line2').textContent = `Estimate was ${(BASE_MB + PER_S_MB * d.meta.seconds).toFixed(0)} MB.`;
   $('fill').style.width = '100%'; setStatus(true, true);
-  $('go').disabled = false;
+  $('go').disabled = !jsonOk;
   const blob = wav16(d.l, d.r, d.rate);
   if (url) URL.revokeObjectURL(url);
   url = URL.createObjectURL(blob);
@@ -166,8 +798,8 @@ function showSheet(s) {
   $('note').textContent = s.note || '';
   const box = $('lyrics'); box.textContent = ''; lines = [];
   for (const sec of s.sections) {
-    const h = document.createElement('div'); h.className = 'sec'; h.textContent = sec.label;
-    box.append(h);
+    const hd = document.createElement('div'); hd.className = 'sec'; hd.textContent = sec.label;
+    box.append(hd);
     for (const ln of sec.lines) {
       if (!ln.text) continue;
       const p = document.createElement('div'); p.className = 'ln'; p.textContent = ln.text;
@@ -184,19 +816,40 @@ $('audio').ontimeupdate = () => {
 function fail(msg, fatal) {
   clearInterval(tick); setStatus(false);
   $('err').textContent = 'Error: ' + msg + (fatal ? '\n(The engine stopped; restarting it.)' : '');
-  if (fatal) { worker.terminate(); spawn(); } else $('go').disabled = !ready;
+  if (fatal) { worker.terminate(); spawn(); } else $('go').disabled = !ready || !jsonOk;
 }
 
 async function loadSong(k) {
-  try { $('json').value = await (await fetch(`./songs/${k}.json`)).text(); probe(); }
+  try { setSong(await (await fetch(`./songs/${k}.json`)).json()); }
   catch (e) { fail('could not load song ' + k); }
 }
+const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '(your edits)'; $('song').append(o0);
 for (const [k, name] of SONGS) { const o = document.createElement('option'); o.value = k; o.textContent = name; $('song').append(o); }
-$('song').onchange = () => loadSong($('song').value);
-$('json').oninput = probe; $('seed').oninput = probe; $('voice').onchange = probe;
+$('song').onchange = () => {
+  if (!$('song').value) return;
+  if (!confirm('Replace the song in the editor? Unsaved edits are lost (download the JSON first to keep them).')) { $('song').value = ''; return; }
+  loadSong($('song').value);
+};
+$('newsong').onclick = () => {
+  if (!confirm('Start a new song? Unsaved edits are lost.')) return;
+  $('song').value = ''; setSong(blankSong());
+};
+$('seed').oninput = probe; $('voice').onchange = probe;
 
 if (typeof WebAssembly !== 'object') fail('this browser has no WebAssembly');
-else { spawn(); loadSong(SONGS[0][0]); }
+else {
+  spawn();
+  let draft = null;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (e) { draft = null; }
+  if (draft && typeof draft === 'object' && Array.isArray(draft.sections)) setSong(draft);
+  else { $('song').value = SONGS[0][0]; loadSong(SONGS[0][0]); }
+  let saved = '';
+  try { saved = localStorage.getItem('sunflower.lyrics') || ''; } catch (e) { /* ignore */ }
+  $('lyr').value = saved; lyricInfo();
+  let tab = 'lyrics';
+  try { tab = sessionStorage.getItem('sunflower.tab') || 'song'; } catch (e) { /* ignore */ }
+  showTab(TABS.includes(tab) ? tab : 'lyrics');
+}
 </script>
 </body>
 </html>

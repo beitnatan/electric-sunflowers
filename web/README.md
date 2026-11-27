@@ -2,6 +2,10 @@
 
 `scripts/build-web.sh` builds `web/webrender.wasm` (1.4 MB) and copies the bundled songs to `web/songs/`. Serve `web/` with any static server.
 
+## Page layers
+
+The page edits one song object in three layers, each a view of the same JSON: (1) Lyrics: plain words, one line per sung line, `[chorus]` headers; the page splits words into syllables (a rule of thumb; hyphens, `*` and `~` written by hand are kept), writes a chord progression in the song's key and fills the song's sections; "Sing it" applies and renders. (2) Arrangement: key, tempo, band, singers, the arranger's note, and each section with its chords, energy, key change, tune and per-line fields. (3) JSON: the raw song, two-way synced; fields the forms do not show are kept. The player (seed, voice, render, audio, lyrics) stays above the layers. Edits are kept in the browser's local storage.
+
 Files: `index.html` (page, spinner, memory readout), `worker.js` (runs the engine off the page thread), `sunflower.js` (wasm glue, WAV writer), `crates/webrender` (the C interface; no wasm-bindgen).
 
 ## Threads and headers
