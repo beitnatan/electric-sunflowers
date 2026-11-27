@@ -188,10 +188,10 @@ pub struct VoiceSynth {
 /// Vowel modification at high pitch: largest share of F2 and F3's excess
 /// over their references removed, the f0 range (Hz) it ramps in over, and
 /// the references (Hz, unscaled; times the voice's `fs`).
-const VMOD_MAX: f64 = 0.85;
+const VMOD_MAX: f64 = 1.0;
 const VMOD_F0_LO: f64 = 300.0;
 const VMOD_F0_HI: f64 = 500.0;
-const VMOD_F2_REF: f64 = 1600.0;
+const VMOD_F2_REF: f64 = 2000.0;
 const VMOD_F3_REF: f64 = 2500.0;
 
 /// Per-frame values the inner loop ramps.

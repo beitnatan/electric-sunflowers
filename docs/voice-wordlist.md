@@ -76,3 +76,73 @@ The word score is the mean of its warmth and timbre parts against the same overa
 - Pitch fixed by `tune` hints; the engine did not transpose any voice (notes.json shows 55, 60, 65, 70).
 - Word score and per-voice rows are against one pooled reference, not a per-vowel reference.
 - hVd vowel targets typed from memory (see above).
+
+## Tuning against SingMOS-Pro and Audiobox (alto, soprano)
+
+The first tuning (hf_bed, jitter, shimmer, rd, fa_hz, shelf_db) raised the word-list scores and lowered SingMOS-Pro on the demo lead (alto 3.18 to 2.75, soprano 3.09 to 2.34). The word-list score is our own proxy and rewards noise. It is now a screen only: a setting stays when SingMOS-Pro and PQ hold. Baseline for every row: origin/demo-faults-fix, demo lead, seed 1234. Listeners: `tools/listen_all.py` (SingMOS-Pro, Audiobox PQ, wav2vec2 phoneme hits); `tools/iy_profile.py` (sung /iy/ harmonics against VocalSet); vow = `crates/voice/examples/vow.rs`; per-bin open H1-H2 = `voice_target.py eng` against the vocadito female target. SingMOS differences under 0.05 are inside run-to-run judgment; each row is one render.
+
+### Soprano /iy/ (vowel modification, synth.rs)
+
+Voice-tune did not cause the soprano /iy/ loss: the baseline already had 8/17. The cause is the front-vowel modification of cd1092db (VMOD_MAX 0.85, F2 reference 1600 Hz times fs 1.22 = 1950 Hz), which moves F2 down by 800 Hz at 500 Hz f0. Soprano demo lead:
+
+```
+run                    iy hits  SingMOS   PQ   wl SingMOS  i 420-550 H6 H7 H8   i 550-750 H5 H6   vow
+VocalSet                  -        -       -        -        -30 -30 -35          -32 -37          -
+off (VMOD 0)            13/17    3.35    7.29     2.84      -17 -25 -12          -16  -9         10.74
+VMOD 0.4                13/17    3.29    7.20     2.83      -31 -24 -26          -20 -20         10.77
+VMOD 0.6                13/17    3.27    7.21     2.81      -34 -22 -31          -21 -25         10.78
+0.85, F2 1600 (before)   8/17    3.09    7.22     2.79      -35 -28 -36          -24 -30         10.69
+0.85, F2 1700, F3 2800  11/17    3.22    7.21     2.82      -37 -30 -28          -26 -23         10.75
+0.85, F2 1900           13/17    3.29    7.26     2.81      -29 -23 -33          -19 -26         10.71
+1.0,  F2 1700            8/17    3.13    7.20     2.76      -33 -32 -38          -26 -32         10.70
+1.0,  F2 2000 (chosen)  16/17    3.33    7.27     2.82      -26 -26 -34          -19 -27         10.73
+```
+
+Chosen: VMOD_MAX 1.0 and F2 reference 2000 Hz (unscaled; F3 reference 2500 unchanged). SingMOS +0.24, PQ +0.05, /iy/ hits 8/17 to 16/17, H6-H8 of /i/ at 420-550 Hz within 6 dB of VocalSet (+4, +4, +1), the squeak of VMOD 0 (H6 -17, H8 -12) stays gone. Open: at 550-750 Hz the profile is 13 and 10 dB above VocalSet at H5 and H6 (H4 -12 against -23), where the old setting was 8 and 7 dB above (my frame method; reportB reports it as met). That is the part to listen to on high /i/ notes; fall back to 0.85/1700/2800 or VMOD 0.4 if it squeaks. Alto notes above 300 Hz pass through the same code (alto demo SingMOS 3.32 to 3.27, PQ +0.02, /iy/ 11/17 to 17/17). Baritone is bit-identical; tenor moves by 0.02 SingMOS.
+
+### Alto and soprano source sweep (one parameter at a time, from the baseline)
+
+Screen: word-list warmth/timbre and vow (13.08 alto, 10.69 soprano, limit 0.3 dB). Gate: demo SingMOS (no fall over 0.05), PQ (no fall over 0.1), per-bin open H1-H2 (within 0.5 dB of the baseline), word-list SingMOS.
+
+```
+voice    setting                warm tim   vow    SingMOS   PQ   wl SingMOS  verdict
+alto     baseline                32   40  13.08    3.32    6.78    2.61
+alto     shelf_db 18/20/24     33/33/36 40  13.08     -       -      -       warmth +4 at most
+alto     hf_bed 0.05            32   54  13.10     -       -       -        screened out by the 0.1 row
+alto     hf_bed 0.1             42   56  13.09    2.73    6.94    2.51      SingMOS -0.59
+alto     hf_bed 0.2             56   54  13.03    2.47    6.98    2.50      SingMOS -0.85
+alto     rd 1.4 / 2.0           32/35 44/32 12.51/13.62 -    -       -      no gain
+alto     fa_hz 4000             52   46  12.34     -       -       -        vow -0.74
+alto     fa_hz 2500             46   47  12.36    3.43    6.94    2.68      vow -0.72
+alto     breath 0.12 / 0.22     30/35 46/35 13.20/12.92 -    -       -      no gain
+alto     jitter 0.005, shimmer 0.06  32 40/39 13.05/13.06 - -      -        no effect
+alto     fa_hz 4000, rd 2.0     50   43  12.74     -       -       -        vow -0.34
+alto     fa_hz 4000, rd 2.1     50   42  12.83    3.46    6.95    2.68      H1-H2 -0.7 to -1.0
+alto     fa_hz 6000, rd 2.3     53   39  12.98    3.49    6.98    2.68      all held
+alto     fa_hz 4000, rd 2.4     49   39  13.07    3.54    6.97    2.66      all held (chosen)
+soprano  baseline                69   34  10.69    3.09    7.22    2.79
+soprano  shelf_db 20 / 24      72/74 34/35 10.69/10.68 -/3.09 -/7.23 -/2.78 warmth +5
+soprano  hf_bed 0.1             75   41  10.70    2.73    7.17    2.78      SingMOS -0.36
+soprano  hf_bed 0.2             84   44  10.69    2.53    7.11    2.72      SingMOS -0.56
+soprano  rd 1.3 / 2.0           61/67 30/33 10.66/11.37 -  -       -      no gain
+soprano  fa_hz 4000             45   21  10.60     -       -       -        worse
+soprano  breath 0.12            69   39  10.60    3.08    7.19    2.76      held, timbre +5 only
+soprano  breath 0.16            69   45  10.49    3.02    7.12    2.67      SingMOS -0.07, wl -0.12
+soprano  breath 0.22            70   42  10.37     -       -       -        vow -0.32
+soprano  jitter 0.004 / shimmer 0.045  68/69 34/36 10.76/10.73 - -   -      no gain
+soprano  breath 0.14, shelf 24  75   43  10.53    3.06    7.15    2.70      wl SingMOS -0.09
+```
+
+Findings. Noise is what the word-list proxy rewards and SingMOS punishes: hf_bed 0.1 costs 0.4 to 0.6 SingMOS in both voices. The alto's gain comes from the capped source (fa_hz 4000, a one-pole in place of the return phase, as for the tenor) with rd raised to 2.4, which restores the vowel distance and the per-bin open H1-H2 (deltas +0.29, +0.04, +0.10 dB) that fa_hz alone lowers. The soprano has no setting that raises warmth or timbre by 8 points with all gates held: the best held rows are breath 0.12 (timbre +5) and shelf_db 24 (warmth +5); soprano stays at the baseline source and noise. Accepted: alto fa_hz 4000, rd 2.4.
+
+### Before and after (demo lead, seed 1234; word list, same seed)
+
+```
+voice      wl warm/tim   SingMOS   PQ     wl SingMOS  vow     phoneme hits f r l iy ey ih
+baritone   83/60 same    3.21 same 7.22   2.55        12.94   2/4 11/30 8/14 15/17 15/15 5/15 (unchanged)
+tenor      74/50 same    2.89->2.91 6.99  2.70        13.04   2/4 10/30 8/14 17/17 12/15->13/15 6/15
+alto       32/40->50/40  3.32->3.55 6.78->7.00 2.61->2.70 13.08->13.07  1/4->2/4 6->12/30 10->8/14 11->17/17 8->5/15 6->4/15
+soprano    69/34->71/36  3.09->3.33 7.22->7.27 2.79->2.82 10.69->10.73 2/4->2/4 3->2/30 4/14 8->16/17 5->4/15 4/15
+```
+
+Alto warmth +18 (timbre unchanged), SingMOS +0.23, PQ +0.22, per-bin open H1-H2 within 0.3 dB. Soprano changes only through the /iy/ modification. Not done: Whisper word error, listening by ear (the alto's brighter source and the soprano's /iy/ at 550-750 Hz need it).
