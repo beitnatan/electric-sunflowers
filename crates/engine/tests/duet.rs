@@ -1,4 +1,4 @@
-//! Duet wiring (design sections 4.6): `TrackId::LeadB`, the render task
+//! Duet wiring (features-2.md section 4.6): `TrackId::LeadB`, the render task
 //! graph's optional lead B task, the sheet's singer markers, and the solo
 //! song's bit-for-bit invariance (this wave must not move a single sample
 //! of a solo render or mix).

@@ -38,7 +38,7 @@ To run the tests:
 
 The studio and `sunflower write` reach Claude in one of two ways.
 
-**The claude CLI (default).** The engine runs `claude -p --output-format json` with your logged-in account. It runs in a fresh empty temporary directory, with CLAUDE.md files, auto-memory, MCP servers, tools and session persistence switched off, so the request carries only the songwriter prompt. Your own `~/.claude/CLAUDE.md` still reaches the model in this mode. Check the CLI with `claude --version`, and log in by running `claude` once.
+**The claude CLI (default).** The engine runs `claude -p --output-format json` with your logged-in account. It runs in a fresh empty temporary directory, with CLAUDE.md files, auto-memory, MCP servers, tools and session persistence switched off, so the request carries only the songwriter prompt. Check the CLI with `claude --version`, and log in by running `claude` once.
 
 **The Anthropic API.** Set `ANTHROPIC_API_KEY` in the environment that starts the studio or `sunflower`. The request goes to the Messages API with a 900 s timeout and up to three retries on rate limits, server errors and transport failures. This path has not yet been exercised with a live call; the CLI path has.
 

@@ -15,9 +15,11 @@ Rules (`song::wire::resolve_version`):
 
 - `schema_version` absent: version 1, silently; version 2 with `Repair::SchemaVersionInferred` when the document uses a version-2 field.
 - 1 or 2: as declared. A version-2 field in a version-1 document is dropped with `Repair::FieldNeedsSchema`. A `~` in a version-1 lyric stays text.
-- Greater than 2: `SongError::UnsupportedSchema`. Not a number, or below 1: `DefaultedField`, then as absent.
+- Greater than the latest version (now 3; see `docs/schema-3.md`): `SongError::UnsupportedSchema`. Not a number, or below 1: `DefaultedField`, then as absent.
 - `Song.schema_version` keeps the version read; `to_wire` writes it back (version 1 writes no `schema_version`, so a version-1 file round-trips byte for byte in meaning).
-- `song::schema`: `json_schema_v1`, `json_schema_v2`, `json_schema()` (latest; requires `schema_version: 2`), `json_schema_for(n)`. The songwriter asks Claude for the latest.
+- `song::schema`: `json_schema_v1`, `json_schema_v2`, `json_schema_v3`, `json_schema_for(n)`. `json_schema()` is the latest, which is version 3 (`json_schema_v3`), as of the version-3 change. The songwriter asks Claude for the latest.
+
+> Status note: this is the design record for version 2. Version 3 (`docs/schema-3.md`) is the current schema; the rules above that name version 2 as the latest describe the time this was written.
 
 Other versioned files: `<stem>.mix.json` (`version`: 1, unchanged), `<stem>.render.json` (`version`: 2 from this change; absent reads as 1), `<stem>.sheet.json` (`version`: 2; absent reads as 1). A reader ignores fields it does not know.
 

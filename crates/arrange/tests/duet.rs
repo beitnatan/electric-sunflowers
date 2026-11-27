@@ -1,4 +1,4 @@
-//! Duet arrangement (design section 4.6): `Vocals.lead_b`, each singer's
+//! Duet arrangement (features-2.md section 4.6): `Vocals.lead_b`, each singer's
 //! notes in order, and the solo song's arrangement unchanged bit for bit.
 
 use arrange::arrange;

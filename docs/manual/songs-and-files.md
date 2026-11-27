@@ -41,6 +41,11 @@ The render sidecar, `<stem>.render.json`:
 | `song_json` | Absolute path of the song JSON. |
 | `audio`, `sheet` | Absolute paths of the recording and the song sheet. |
 | `created` | When the render finished, UTC, ISO 8601. |
+| `version` | The sidecar format version (2 at present); absent reads as 1. |
+| `voice_b` | The second singer's voice in a duet; absent when the song has no duet. |
+| `generation` | The cost and timing of Claude's writing (tokens, elapsed time); absent when the render was of a song already written. |
+| `mix`, `stems` | The mix sidecar applied, and the stems folder, when there are any. |
+| `arranger` | The record of the arranger pass, when one ran (`sunflower write --arrange`, `rearrange`). |
 
 The studio reads `seed`, `voice`, `style`, `song_json` and `audio`. The style key lives only here: the song JSON does not name its style.
 

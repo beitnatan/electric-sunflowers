@@ -65,10 +65,10 @@ Claude makes every writing decision. From here on the engine works alone and mak
 ## What happens next
 
 1. **Claude writes.** The status line reads "Claude is writing the song" with the elapsed seconds and no progress bar, since the length of a model call is unknown. The form estimates a minute or more.
-2. **The reply is saved** as `<slug>.json` in the library, before any check, so that a song the engine rejects is kept. The slug is the title in lower-case ASCII letters and digits, other runs of characters as one hyphen, at most 60 characters; `-2`, `-3` and so on are added when the name is taken.
+2. **The reply is saved** as `<slug>.json` in the library, before any check, so that a song the engine rejects is kept. The slug is the title in lower-case ASCII letters and digits, other runs of characters as one hyphen, at most 60 characters; `-2`, `-3` and so on are added when the name is taken. `sunflower write` builds the slug the same way but without the 60-character cap.
 3. **The song is normalised.** Loose JSON is read leniently; each repair (a defaulted field, a dropped chord, a syllable whose pronunciation had to be guessed) is listed under the song when it opens.
 4. **The style is imposed**: its guitar pattern, break instrument, band parts and drum kit. The tempo is clamped to the style's range for the song's meter, widened by 10% each way.
-5. **The song is rendered** to `<slug>.ogg` (Ogg Vorbis, quality 0.6) with the progress bar, then `<slug>.render.json` and `<slug>.sheet.json` are written beside it. The form estimates about 20 s for this step; a 3-minute song renders in about 5 s on 12 cores.
+5. **The song is rendered** to `<slug>.ogg` (Ogg Vorbis, quality 0.6) with the progress bar, then `<slug>.render.json` and `<slug>.sheet.json` are written beside it. The form estimates about 20 s for this step. Render time depends on the machine and its load; the measured figures are in `docs/engine-design.md` section 10.
 6. **The library is rescanned** and the new song opens.
 
 The style key is recorded in `<slug>.render.json`, not in the song JSON. Keep the two together: without the sidecar the song opens with its own band and tempo instead of the style's.

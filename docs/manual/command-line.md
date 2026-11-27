@@ -27,15 +27,18 @@ Output options (`demo`, `render`, `write`):
 | `-o`, `--out FILE` | The output. `.ogg` is Ogg Vorbis, `.flac` FLAC, `.wav` WAV; any other extension is an error. |
 | `--quality Q` | Ogg Vorbis VBR quality, about -0.2 to 1.0; default 0.6, about 192 kb/s. |
 | `--flac16` | FLAC at 16 bits instead of 24. |
+| `--mix FILE` | Apply this mix sidecar instead of `<stem>.mix.json` beside the output, when one exists. |
+| `--no-mix` | Ignore any mix sidecar, including `<stem>.mix.json`. |
+| `--stems` | Also write `<stem>.stems/`: a 24-bit FLAC per audible track, `reverb.flac` and `stems.json`. About 30 MB per track for a 3-minute song. |
 | `--float` | WAV as 32-bit float instead of 16-bit PCM. |
 
 All output is 44.1 kHz stereo.
 
 ## sunflower demo
 
-    sunflower demo [--seed N] [--voice V] [-o FILE]
+    sunflower demo [--seed N] [--voice V] [-o FILE] [--force] [--mix FILE | --no-mix] [--stems]
 
-Renders the built-in demo, "Every Harbor". The output defaults to `song.ogg`. The demo has no file of its own, so the command first writes its JSON beside the output (`song.json` by default) for the sidecar to name. That write replaces any file of that name.
+Renders the built-in demo, "Every Harbor". The output defaults to `song.ogg`. The demo has no file of its own, so the command first writes its JSON beside the output (`song.json` by default) for the sidecar to name. It refuses to overwrite an existing `<stem>.json` that is not the demo song, unless `--force` is given or `-o` names another output.
 
 ## sunflower render
 
@@ -53,7 +56,7 @@ To make a take in the studio's library, write the output there:
 
 ## sunflower write
 
-    sunflower write "MOOD" [--style KEY|auto] [--via cli|api] [--model ID] [--seed N] [--voice V] [-o FILE]
+    sunflower write "MOOD" [--style KEY|auto] [--via cli|api] [--model ID] [--effort LEVEL] [--seed N] [--voice V] [--arrange] [-o FILE] [--force]
 
 Asks Claude for a song, saves the reply, and renders it, as the studio's New song form does ([Writing a song](writing.md)).
 
@@ -62,11 +65,32 @@ Asks Claude for a song, saves the reply, and renders it, as the studio's New son
 - `--via`: `cli` (the default) runs the logged-in `claude` CLI; `api` calls the Messages API with `ANTHROPIC_API_KEY`.
 - `--model`: a model id; the default is `claude-opus-5-5`.
 - `--seed` sets both the creative direction and the render; `--voice` names the singer to Claude and to the render.
+- `--effort`: `low`, `medium`, `high`, `xhigh` or `max`; defaults to the settings file's `claude.effort`.
+- `--arrange`: after the song is written, runs the arranger pass (see [`sunflower rearrange`](#sunflower-rearrange)) and plays the song from its arrangement.
+- `--force`: with no `-o`, uses the plain title slug and overwrites the files of an existing song of that name. With `-o`, overwrites the files of that output.
 
-The output defaults to `<title-slug>.ogg` in the current directory. Claude's JSON is saved first, as `<stem>.json` beside the output, so a song that fails to normalise is kept. Unlike the studio, the command does not add `-2` to a name already taken: it replaces the older files. It prints the title, style, form, key, meter and tempo on standard output.
+Without `-o`, the output is `<title-slug>.ogg` in the current directory, or `<title-slug>-2.ogg`, `-3`, and so on when that name is taken. With `-o`, the command refuses to run if a file of the output's name already exists, unless `--force` is given. Claude's JSON is saved first, as `<stem>.json` beside the output, so a song that fails to normalise is kept. The command prints the title, style, form, key, meter and tempo on standard output.
 
     sunflower write "a barn dance for the first warm night in April"
     sunflower write "the tide table on a diner wall" --style shanty --voice bass --seed 12
+
+## sunflower arrange
+
+    sunflower arrange SONG.json [--style KEY] [--seed N] [--voice V] [-o FILE]
+
+Writes the note events of every part (the performance, as JSON) and stops. The output defaults to `<song-stem>.arrangement.json`. No audio is rendered; [`sunflower play`](#sunflower-play) renders the file.
+
+## sunflower play
+
+    sunflower play ARRANGEMENT.json [--no PART]... [-o FILE] [--mix FILE | --no-mix] [--stems] [--float] [--quality Q] [--flac16]
+
+Renders and mixes an arrangement file written by `arrange`. The output defaults to `song.ogg`. It writes no sidecars.
+
+## sunflower rearrange
+
+    sunflower rearrange SONG.json [--style KEY] [--note TEXT] [--via cli|api] [--model ID] [--effort LEVEL] [--seed N] [--voice V] [-o FILE]
+
+Runs the arranger pass on an existing song. The rule-based arranger arranges it, Claude edits the arrangement, and the result is played. It saves `<stem>.arrangement.json`, the raw reply as `<stem>.arranger.json`, and `<stem>.mix.json` when the edits change the mix. `--note` adds guidance to the song's own arranging note. The output defaults to `song.ogg`.
 
 ## sunflower sheet
 
@@ -109,6 +133,7 @@ Rendering uses every core through rayon. `RAYON_NUM_THREADS=1` renders on one th
 | `--view V` | The first view: `lyrics`, `sheet` or `both` (default). |
 | `--volume V` | Starting volume, 0 to 1; default 0.8. |
 | `--new` | Open the New song form at start. |
+| `--mixer` | Open the mixer panel at start. |
 | `--play SECS` | Once the song is ready (loaded, laid out, rendered if needed, audio open), play it for SECS seconds, logging the position to standard error. |
 | `--seek SECS` | With `--play` or `--screenshot`: seek there first. Alone it does nothing. |
 | `--screenshot PNG` | After the steps above, save the window as a PNG and quit. It needs a song to open (`SONG.json` or `--open`); the scripted run gives up after 900 s. |
