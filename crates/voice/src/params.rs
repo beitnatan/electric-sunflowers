@@ -45,6 +45,9 @@ pub struct VoiceParams {
     pub cons_gain: f64,
     /// Scale on the F1 bandwidth (1 = the rule in synth.rs).
     pub b1_scale: f64,
+    /// Scale on the bandwidths of the high resonances above F5 (1 is the
+    /// preset 420 + 0.05 f Hz); narrower puts harmonic energy at 6 to 9 kHz.
+    pub high_bw: f64,
 }
 
 /// The preset for `voice`.
@@ -72,6 +75,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 2.74,
             b1_scale: 1.0,
+            high_bw: 1.0,
         },
         // Tenor: fitted to the same male-range singers as the baritone, by
         // the reduced procedure of engine-design 5.1 (capped source).
@@ -93,6 +97,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 3.3,
             b1_scale: 1.0,
+            high_bw: 1.0,
         },
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
@@ -113,6 +118,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
+            high_bw: 1.0,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
@@ -133,6 +139,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
+            high_bw: 1.0,
         },
         // Bass: the baritone's fitted `fa_hz`, `shelf_db`, `hf_bed`, `hf_hz`
         // and `cons_gain`; `rd` picked for the same open-vowel H1-H2; its own
@@ -155,6 +162,7 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             hf_hz: 3800.0,
             cons_gain: 2.74,
             b1_scale: 1.0,
+            high_bw: 1.0,
         },
     }
 }
@@ -213,6 +221,9 @@ pub fn parse_fit(spec: &str) -> Result<(Voice, VoiceParams), String> {
             "hf_hz" => p.hf_hz = num()?,
             "cons_gain" => p.cons_gain = num()?,
             "b1_scale" => p.b1_scale = num()?,
+            "high_bw" => p.high_bw = num()?,
+            "fs" => p.fs = num()?,
+            "f1s" => p.f1s = num()?,
             "breath" => p.breath = num()?,
             "jitter" => p.jitter = num()?,
             "shimmer" => p.shimmer = num()?,
