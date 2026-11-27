@@ -41,12 +41,12 @@
       4002
     ]
   },
-  "mix_s": 1.6561379440000001,
-  "render_s": 2.1642555,
+  "mix_s": 2.450810827,
+  "render_s": 3.60134278,
   "samples": 8192076,
   "seed": 2718,
   "slapback_blocks": 1847,
-  "stem_write_s": 0.733000747,
+  "stem_write_s": 1.055979246,
   "stems": [
     "lead",
     "doubles",
