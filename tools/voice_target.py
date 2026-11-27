@@ -28,7 +28,9 @@ open H1-H2 is its median over open-vowel frames: the strongest of the first
 8 harmonics is harmonic K or higher (--open-k, default 3) and f0 <= F (--open-f0,
 default 200 Hz). `eng --target` takes both from the target file. The pooled median is
 confounded by the singers' f0 and vowel mix (the real tracks sing at a median
-of 144 Hz, the engine lead at 192 Hz); this one compares like with like. For
+of 144 Hz, the engine lead at 192 Hz); this one compares like with like. The per-bin medians of the same frames
+(open_h12_bins, f0 250-300, 300-350, 350-400 Hz) are compared bin by bin by
+`eng --target` when the target holds them (the female target does). For
 information, per f0 bin (100-150, 150-200 Hz): "slope", the regression slope
 of harmonic level against log2 k below 1.5 kHz (dB/oct), and "H1 below
 strongest", harmonic 1 minus the strongest harmonic below 1.5 kHz (dB).
@@ -55,6 +57,8 @@ SOURCE_MIN = ("vocadito (Bittner et al., ISMIR 2021 late-breaking), Zenodo 55788
               "CC BY 4.0; tracks with average pitch >= MIDI %g; "
               "statistics only")
 PROM = (C3 == 5000) | (C3 == 6300) | (C3 == 8000)
+OPEN_BINS = ((250, 300), (300, 350), (350, 400))  # f0 bins for open H1-H2
+MIN_BIN_N = 50
 
 
 def read_wav(path):
@@ -173,6 +177,12 @@ def pool(rs, ws, open_k=3, open_f0=200.0):
         open_h12 = {"q1": float(oq[0]), "median": float(oq[1]), "q3": float(oq[2]), "n": int(om.sum())}
     else:
         open_h12 = {"q1": float("nan"), "median": float("nan"), "q3": float("nan"), "n": 0}
+    open_bins = {}
+    for lo, hi in OPEN_BINS:
+        m = om & (fr[:, 0] >= lo) & (fr[:, 0] < hi)
+        open_bins["%d-%d" % (lo, hi)] = {
+            "n": int(m.sum()),
+            "median": float(np.median(fr[m, 2])) if m.any() else float("nan")}
     bins = {}
     for lo, hi in ((100, 150), (150, 200)):
         m = (fr[:, 0] >= lo) & (fr[:, 0] < hi)
@@ -192,6 +202,7 @@ def pool(rs, ws, open_k=3, open_f0=200.0):
         "peak_flr": pk,
         "h1h2": {"q1": float(q1), "median": float(med), "q3": float(q3)},
         "open_h12": open_h12,
+        "open_h12_bins": open_bins,
         "f0_bins": bins,
         "frames": int(sum(r["nfr"] for r in rs)),
     }
@@ -255,6 +266,18 @@ def compare(e, t):
     print("J1 (630 Hz .. 3.15 kHz) %.2f dB" % j1)
     if "open_h12" in t and not np.isnan(t["open_h12"]["median"]):
         print("open H1-H2 E - T %.2f dB" % (e["open_h12"]["median"] - t["open_h12"]["median"]))
+    eb, tb = e.get("open_h12_bins"), t.get("open_h12_bins")
+    if eb and tb:
+        parts, vals = [], []
+        for k in tb:
+            d = eb[k]["median"] - tb[k]["median"]
+            parts.append("%s Hz %+.2f (n %d / %d)" % (k, d, eb[k]["n"], tb[k]["n"]))
+            if eb[k]["n"] >= MIN_BIN_N and tb[k]["n"] >= MIN_BIN_N:
+                vals.append(d)
+        print("open H1-H2 per bin E - T: " + "; ".join(parts))
+        if vals:
+            print("open H1-H2 per bin mean E - T %.2f dB (%d bins with n >= %d on both sides)"
+                  % (float(np.mean(vals)), len(vals), MIN_BIN_N))
     if "cons_prom" in t:
         print("consonant prominence E %.2f  T %.2f dB" % (e["cons_prom"], t["cons_prom"]))
     return j, mx
