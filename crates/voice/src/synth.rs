@@ -188,6 +188,8 @@ struct Frame {
     ah: (f64, f64),
     af: (f64, f64),
     f0: (f64, f64),
+    /// Voice bar at the frame's two ends.
+    vb: (f64, f64),
 }
 
 impl VoiceSynth {
@@ -225,6 +227,12 @@ impl VoiceSynth {
         self.breath_lp.reset();
         self.hf[0].reset();
         self.hf[1].reset();
+    }
+
+    /// Centre and bandwidth of the nasal zero in frame `m`: the pole's own
+    /// (the pair cancels) at nasality 0, the nasal's antiresonance at 1.
+    fn nasal_zero(ctl: &ControlTracks, m: usize) -> (f64, f64) {
+        Tract::nasal_zero_at(ctl.nas[m] as f64, ctl.fnz[m] as f64)
     }
 
     /// Formants of frame `m` (fundamental `f0` Hz) with the current wobble.
@@ -286,7 +294,9 @@ impl VoiceSynth {
             if self.tract.is_fresh() {
                 let now = self.formants(ctl, m, f0a);
                 self.tract.jump_formants(&now);
+                self.tract.jump_nasal_zero(Self::nasal_zero(ctl, m));
             }
+            self.tract.ramp_nasal_zero(Self::nasal_zero(ctl, m + 1));
             for w in &mut self.wobble {
                 w.step(&mut self.formant_rng);
             }
@@ -307,6 +317,7 @@ impl VoiceSynth {
                 ah: d(ah),
                 af: d(af),
                 f0: (f0a, f0b),
+                vb: d(lv(&ctl.vb)),
             };
             let n = dst.len();
             self.noise.fill_bipolar(&mut self.asp[..n]);
@@ -375,6 +386,7 @@ impl VoiceSynth {
                 exc[j] += y * self.hf_bed;
             }
         }
+        self.tract.voice_bar_block(&mut exc[..n], fr.vb);
         self.tract
             .finish_block::<FRIC>(&exc[..n], &fin[..n], &mut out[..n]);
         self.tract.flush_denormals();
