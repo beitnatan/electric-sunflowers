@@ -74,7 +74,26 @@
   p.lede { color:var(--dim); margin:0 0 1rem; max-width:62ch; }
 
   /* layers */
-  .tabs { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); border-bottom:1px solid var(--line); margin-bottom:1.25rem; }
+  .layerbar { display:flex; align-items:flex-end; gap:1rem; border-bottom:1px solid var(--line); margin-bottom:1.25rem; position:sticky; top:0; z-index:6; background:var(--ground); padding-top:.35rem; }
+  .tabs { flex:1; min-width:0; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .undo { flex:none; display:flex; gap:.3rem; align-items:center; padding-bottom:.55rem; }
+  .undo button, .hist > summary { font-size:.85rem; padding:.3rem .6rem; white-space:nowrap; }
+  .hist { position:relative; }
+  .hist > summary { list-style:none; cursor:pointer; border:1px solid var(--line-strong); border-radius:6px; display:block; }
+  .hist > summary::-webkit-details-marker { display:none; }
+  .hist > summary:hover { border-color:var(--accent); color:var(--accent-hi); }
+  .hist ol { position:absolute; right:0; top:calc(100% + .4rem); width:min(22rem, 86vw); max-height:50vh; overflow:auto; margin:0; padding:.3rem; list-style:none; background:var(--surface); border:1px solid var(--line-strong); border-radius:8px; box-shadow:0 18px 40px -16px var(--shadow); z-index:9; }
+  .hbtn { width:100%; display:flex; justify-content:space-between; gap:.75rem; text-align:left; border:0; border-radius:5px; padding:.4rem .55rem; font-size:.85rem; }
+  .hbtn:hover { background:var(--raised); }
+  .hbtn.cur { background:var(--chip); font-weight:700; }
+  .hbtn time { color:var(--dim); font:.72rem ui-monospace, Menlo, Consolas, monospace; flex:none; }
+  .toast { position:fixed; top:.75rem; left:50%; transform:translateX(-50%); z-index:30; max-width:min(36rem, calc(100vw - 2rem)); display:flex; gap:.9rem; align-items:center; background:var(--raised); color:var(--text); border:1px solid var(--line-strong); border-radius:8px; padding:.55rem .8rem; box-shadow:0 14px 40px -12px var(--shadow); font-size:.9rem; }
+  .toast button { flex:none; padding:.2rem .6rem; }
+  .review { border:1px solid var(--bad); border-radius:8px; background:var(--surface); padding:.8rem 1rem; margin:.5rem 0 1rem; }
+  .review h3 { margin:0 0 .4rem; font-size:.95rem; }
+  .review ul { margin:.2rem 0 .4rem; padding-left:1.2rem; font-size:.9rem; }
+  .review li.lose { color:var(--bad); }
+  .review li.note { color:var(--dim); }
   .tabs [role=tab] { text-align:left; border:0; border-bottom:2px solid transparent; border-radius:0; padding:.6rem .25rem .7rem; margin-right:.75rem; color:var(--dim); display:grid; grid-template-columns:auto 1fr; column-gap:.6rem; align-items:baseline; }
   .tabs [role=tab] .n { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.8rem; color:var(--faint); grid-row:span 2; align-self:start; padding-top:.25rem; }
   .tabs [role=tab] .nm { font-weight:700; font-size:1.05rem; }
@@ -82,7 +101,7 @@
   .tabs [role=tab][aria-selected=true] { color:var(--text); border-bottom-color:var(--accent); }
   .tabs [role=tab][aria-selected=true] .n { color:var(--accent); }
   .tabs [role=tab][data-bad] .hint { color:var(--bad); }
-  @media (max-width: 34rem) { .tabs [role=tab] .hint { display:none; } .tabs [role=tab] .n { grid-row:auto; } }
+  @media (max-width: 34rem) { .tabs [role=tab] .hint { display:none; } .tabs [role=tab] .n { grid-row:auto; } .undo .lbl { display:none; } .layerbar { gap:.4rem; } }
 
   /* lyrics */
   #lyr { min-height:20rem; font:17px/1.75 system-ui, -apple-system, "Segoe UI", sans-serif; padding:1rem 1.1rem; background:var(--surface); }
@@ -213,25 +232,38 @@
 
   <div class="work">
     <main class="editor">
+      <div class="layerbar">
       <div class="tabs" role="tablist" aria-label="Layers">
         <button role="tab" id="t-lyrics" aria-controls="p-lyrics" aria-selected="true" type="button"><span class="n">1</span><span class="nm">Lyrics</span><span class="hint">the words</span></button>
         <button role="tab" id="t-arrangement" aria-controls="p-arrangement" aria-selected="false" tabindex="-1" type="button"><span class="n">2</span><span class="nm">Arrangement</span><span class="hint">how it is played</span></button>
         <button role="tab" id="t-json" aria-controls="p-json" aria-selected="false" tabindex="-1" type="button"><span class="n">3</span><span class="nm">JSON</span><span class="hint" id="h-json">the raw song</span></button>
       </div>
+      <div class="undo" role="group" aria-label="History">
+        <button id="undo" class="ghost" type="button" disabled><span aria-hidden="true">&#8630;</span> <span class="lbl">Undo</span></button>
+        <button id="redo" class="ghost" type="button" disabled><span class="lbl">Redo</span> <span aria-hidden="true">&#8631;</span></button>
+        <details id="hist" class="hist"><summary class="ghost">History</summary><ol id="histlist"></ol></details>
+      </div>
+      </div>
 
       <section role="tabpanel" id="p-lyrics" aria-labelledby="t-lyrics">
-        <p class="lede">One line per sung line. A blank line or a header such as <code>[chorus]</code> starts a section; a header alone repeats the earlier section of that type. The engine composes the melody and the band.</p>
+        <p class="lede">One line per sung line. A blank line or a header such as <code>[chorus]</code> starts a section; a header alone repeats the earlier section of that type. The engine composes the melody and the band. Putting lyrics in the song merges them: lines you did not reword keep their chords, tunes and settings, and nothing is dropped without your say-so.</p>
         <textarea id="lyr" spellcheck="true" aria-label="Lyrics" placeholder="[verse]&#10;Light the lamps and bar the door&#10;The fiddle's in the corner now&#10;&#10;[chorus]&#10;Roll the barrel in&#10;Roll the barrel in&#10;&#10;[chorus]"></textarea>
         <p id="lyrinfo"></p>
+        <div id="review" class="review" hidden>
+          <h3>Before this changes the song</h3>
+          <ul id="reviewlist"></ul>
+          <div class="add"><button id="reviewgo" class="primary" type="button">Apply anyway</button><button id="reviewno" class="ghost" type="button">Cancel</button></div>
+          <p class="dim" style="margin:0; font-size:.8rem">Apply can be undone.</p>
+        </div>
         <div class="add">
           <button id="sing" class="primary" type="button">Sing it</button>
           <button class="ghost" id="lyrapply" type="button">Put in the song</button>
           <button class="ghost" id="lyrfrom" type="button">Read lyrics from the song</button>
         </div>
         <div class="lyrbar">
-          <div><label for="lyrchords">Chords</label>
-            <select id="lyrchords"><option value="auto">a progression in the song's key</option><option value="keep">keep the chords already in the song</option></select></div>
-          <div><label for="lyrbars">Bars per line</label>
+          <div><label for="lyrchords">Chords for new lines</label>
+            <select id="lyrchords"><option value="auto">a progression in the song's key</option><option value="keep">none; the previous chord carries on</option></select></div>
+          <div><label for="lyrbars">Bars per new line</label>
             <select id="lyrbars"><option value="0">by line length</option><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></div>
         </div>
         <div class="preview" id="preview" hidden>
@@ -296,6 +328,8 @@
       </details>
     </aside>
   </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toasttext"></span><button id="toastact" class="ghost" type="button" hidden></button></div>
 
   <footer><small>Rendering is deterministic: the same song, seed and voice give the same recording here. It is not bit-identical to the native build (different math library, no flush-to-zero); the difference is 132 dB below the signal. The singer is synthetic. Your edits are kept in this browser.</small></footer>
 </div>
@@ -387,7 +421,74 @@ let ready = false, worker = null, probeTimer = 0, saveTimer = 0, tick = 0, t0 = 
 const openSecs = new WeakSet();
 
 const text = () => JSON.stringify(song, null, 1);
+
+// ---- History: every edit is a named step, so any of them can be undone ----
+let H = [], hi = -1, restoring = false, toastTimer = 0;
+const snap = () => JSON.stringify({ s: song, l: $('lyr').value });
+const FIELD = { syl: 'lyric', ph: 'phonemes', schema_version: 'schema', harmonyGuitar: 'harmony guitar', note: 'liner note', arranging: 'arranger note', same: 'repeat flag' };
+function record(label, o = {}) {
+  if (restoring) return;
+  const now = Date.now(), sn = snap(), cur = H[hi];
+  if (cur && cur.sn === sn) return;
+  if (o.key && cur && cur.key === o.key && now - cur.t < 1500 && hi === H.length - 1 && hi > 0) { cur.sn = sn; cur.t = now; }
+  else {
+    H.length = hi + 1; H.push({ label, sn, t: now, key: o.key });
+    if (H.length > 80) H.shift();
+    hi = H.length - 1;
+  }
+  paintHistory();
+  if (o.toast && !o.quiet) { const at = hi; toast(o.toast === true ? label : o.toast, { label: 'Undo', fn: () => { if (hi === at) goto(at - 1); else toast('Other edits came after this one. Use History to step back.'); } }); }
+}
+function goto(i) {
+  if (i < 0 || i >= H.length || i === hi) return;
+  const from = hi, o = JSON.parse(H[i].sn);
+  const open = (song.sections || []).map((x) => openSecs.has(x));
+  restoring = true;
+  try {
+    song = o.s; $('lyr').value = o.l; hi = i;
+    (song.sections || []).forEach((x, k) => { if (open[k]) openSecs.add(x); });
+    $('json').value = text(); setJsonState(true); buildAll(); lyricInfo();
+    try { localStorage.setItem('sunflower.lyrics', o.l); } catch (e) { /* ignore */ }
+    $('song').value = '';
+    changed({ fromJson: true });
+  } finally { restoring = false; }
+  paintHistory();
+  hideReview();
+  toast(i < from ? `Undid: ${H[from].label}` : `Redid: ${H[i].label}`, i < from ? { label: 'Redo', fn: () => goto(hi + 1) } : { label: 'Undo', fn: () => goto(hi - 1) });
+}
+function toast(msg, act) {
+  $('toasttext').textContent = msg;
+  const b = $('toastact'); b.hidden = !act;
+  if (act) { b.textContent = act.label; b.onclick = () => { hideToast(); act.fn(); }; }
+  $('toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, act ? 9000 : 4000);
+}
+function hideToast() { $('toast').hidden = true; }
+function paintHistory() {
+  $('undo').disabled = hi <= 0; $('redo').disabled = hi >= H.length - 1;
+  $('undo').title = hi > 0 ? `Undo: ${H[hi].label} (Ctrl+Z)` : 'Nothing to undo';
+  $('redo').title = hi < H.length - 1 ? `Redo: ${H[hi + 1].label} (Ctrl+Shift+Z)` : 'Nothing to redo';
+  $('undo').setAttribute('aria-label', $('undo').title); $('redo').setAttribute('aria-label', $('redo').title);
+  const ol = $('histlist'); ol.textContent = '';
+  for (let i = H.length - 1; i >= 0; i--) {
+    const t = new Date(H[i].t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    ol.append(h('li', null, h('button', { type: 'button', class: 'hbtn' + (i === hi ? ' cur' : ''), 'aria-current': i === hi ? 'true' : null,
+      onclick: () => { $('hist').open = false; goto(i); } }, h('span', { text: H[i].label }), h('time', { text: t }))));
+  }
+}
+$('undo').onclick = () => goto(hi - 1);
+$('redo').onclick = () => goto(hi + 1);
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const t = e.target, k = e.key.toLowerCase();
+  if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || (t.tagName === 'INPUT' && !['checkbox', 'file'].includes(t.type)))) return; // fields keep their own undo
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); goto(hi - 1); }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); goto(hi + 1); }
+});
+document.addEventListener('click', (e) => { const d = $('hist'); if (d.open && !d.contains(e.target)) d.open = false; });
+
 function changed(opts = {}) {
+  record(opts.label || 'Edit', opts);
   $('songname').textContent = (song && song.title) || 'Untitled';
   $('songnote').textContent = (song && song.note) || '';
   $('facts').textContent = '';
@@ -413,7 +514,7 @@ function bind(ctl, obj, key, o = {}) {
     const v = read();
     if (v === undefined || (o.optional && (v === '' || v === false))) delete obj[key]; else obj[key] = v;
     if (o.after) o.after();
-    changed();
+    changed({ label: 'Edit ' + (FIELD[key] || key), key: ctl });
   });
   return ctl;
 }
@@ -431,7 +532,7 @@ function bindChords(ctl, obj, key) {
   ctl.addEventListener('input', () => {
     const c = parseChords(ctl.value);
     if (c.length) obj[key] = c; else delete obj[key];
-    changed();
+    changed({ label: 'Edit chords', key: ctl });
   });
   return ctl;
 }
@@ -490,7 +591,7 @@ function phrasingSel(key, values, dflt) {
     const ph = (song.phrasing ||= {});
     if (s.value) ph[key] = s.value; else delete ph[key];
     if (!Object.keys(ph).length) delete song.phrasing;
-    changed();
+    changed({ label: 'Edit ' + key, key: s });
   });
   return s;
 }
@@ -499,7 +600,7 @@ function duetSel() {
   s.value = (song.duet && song.duet.voice) || '';
   s.addEventListener('change', () => {
     if (s.value) song.duet = { ...(song.duet || {}), voice: s.value }; else delete song.duet;
-    changed();
+    changed({ label: 'Edit second singer', key: s });
   });
   return s;
 }
@@ -536,7 +637,7 @@ function buildSections() {
 }
 function addSection(kind) {
   const s = INSTRUMENTAL.includes(kind) ? { type: kind, chords: ['G', 'D'] } : { type: kind, lines: [{ syl: '', chords: [] }] };
-  song.sections.push(s); openSecs.add(s); rebuild(); changed();
+  song.sections.push(s); openSecs.add(s); rebuild(); changed({ label: 'Add ' + kind + ' section', toast: true });
 }
 function rebuild() { buildSections(); }
 
@@ -552,10 +653,10 @@ function sectionCard(s, i, secs) {
     meter,
     h('span', { class: 'dim', text: secSummary(s, i).slice(1).join(' · ') }),
     tools([
-      tb('↑', 'Move section up', () => { if (move(secs, i, -1)) { rebuild(); changed(); } }),
-      tb('↓', 'Move section down', () => { if (move(secs, i, 1)) { rebuild(); changed(); } }),
-      tb('Copy', 'Duplicate section', () => { const c = structuredClone(s); secs.splice(i + 1, 0, c); openSecs.add(c); rebuild(); changed(); }),
-      tb('×', 'Delete section', () => { if (confirm('Delete this section?')) { secs.splice(i, 1); rebuild(); changed(); } }, 'danger'),
+      tb('↑', 'Move section up', () => { if (move(secs, i, -1)) { rebuild(); changed({ label: 'Move section up' }); } }),
+      tb('↓', 'Move section down', () => { if (move(secs, i, 1)) { rebuild(); changed({ label: 'Move section down' }); } }),
+      tb('Copy', 'Duplicate section', () => { const c = structuredClone(s); secs.splice(i + 1, 0, c); openSecs.add(c); rebuild(); changed({ label: 'Duplicate section ' + (i + 1), toast: true }); }),
+      tb('×', 'Delete section', () => { secs.splice(i, 1); rebuild(); changed({ label: 'Delete section ' + (i + 1) + ' (' + s.type + ')', toast: true }); }, 'danger'),
     ]));
   const resum = () => {
     const x = secSummary(s, i);
@@ -606,7 +707,7 @@ function linesEditor(s, resum) {
     box.textContent = '';
     arr.forEach((ln, i) => box.append(lineCard(ln, i, arr, draw, resum)));
     box.append(h('div', { class: 'add' },
-      h('button', { type: 'button', class: 'ghost', text: 'Add line', onclick: () => { arr.push({ syl: '', chords: [] }); draw(); resum(); changed(); } })));
+      h('button', { type: 'button', class: 'ghost', text: 'Add line', onclick: () => { arr.push({ syl: '', chords: [] }); draw(); resum(); changed({ label: 'Add line' }); } })));
   };
   draw();
   return box;
@@ -630,9 +731,9 @@ function lineCard(ln, i, arr, draw, resum) {
   const card = h('div', { class: 'linecard' },
     h('div', { class: 'hd' }, h('span', { text: `Line ${i + 1}` }), cnt,
       tools([
-        tb('↑', 'Move line up', () => { if (move(arr, i, -1)) { draw(); changed(); } }),
-        tb('↓', 'Move line down', () => { if (move(arr, i, 1)) { draw(); changed(); } }),
-        tb('×', 'Delete line', () => { arr.splice(i, 1); draw(); resum(); changed(); }, 'danger'),
+        tb('↑', 'Move line up', () => { if (move(arr, i, -1)) { draw(); changed({ label: 'Move line up' }); } }),
+        tb('↓', 'Move line down', () => { if (move(arr, i, 1)) { draw(); changed({ label: 'Move line down' }); } }),
+        tb('×', 'Delete line', () => { arr.splice(i, 1); draw(); resum(); changed({ label: 'Delete line ' + (i + 1), toast: true }); }, 'danger'),
       ])),
     labelled('Lyric', syl),
     h('div', { class: 'row' },
@@ -658,10 +759,10 @@ function tunesBox() {
   for (const name of Object.keys(tunes)) {
     const ta = h('textarea', { rows: Math.min(8, Math.max(2, (tunes[name] || []).length)), spellcheck: 'false', 'aria-label': 'Tune ' + name });
     ta.value = (Array.isArray(tunes[name]) ? tunes[name] : [String(tunes[name])]).join('\n');
-    ta.addEventListener('input', () => { tunes[name] = ta.value.split('\n').map((x) => x.trim()).filter(Boolean); changed(); });
+    ta.addEventListener('input', () => { tunes[name] = ta.value.split('\n').map((x) => x.trim()).filter(Boolean); changed({ label: 'Edit tune ' + name, key: ta }); });
     fs.append(h('div', null,
       h('div', { style: 'display:flex; justify-content:space-between; align-items:end' }, h('label', { text: name }),
-        tb('×', 'Delete tune ' + name, () => { delete tunes[name]; if (!Object.keys(tunes).length) delete song.tunes; buildSections(); changed(); }, 'danger')),
+        tb('×', 'Delete tune ' + name, () => { delete tunes[name]; if (!Object.keys(tunes).length) delete song.tunes; buildSections(); changed({ label: 'Delete tune ' + name, toast: true }); }, 'danger')),
       ta));
   }
   const nm = h('input', { type: 'text', placeholder: 'name, e.g. V', 'aria-label': 'New tune name', style: 'max-width:12rem' });
@@ -670,7 +771,7 @@ function tunesBox() {
     (song.tunes = tunesObject())[n] = [];
     if (Array.isArray(song.tunes)) song.tunes = {};
     song.tunes[n] ||= [];
-    buildSections(); changed();
+    buildSections(); changed({ label: 'Add tune ' + n });
   } })));
   return fs;
 }
@@ -709,7 +810,7 @@ $('json').addEventListener('input', () => {
   let v;
   try { v = JSON.parse($('json').value); if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('the song must be an object'); }
   catch (e) { setJsonState(false, e.message); return; }
-  song = v; setJsonState(true); buildAll(); changed({ fromJson: true });
+  song = v; setJsonState(true); buildAll(); changed({ fromJson: true, label: 'Edit JSON', key: $('json') });
 });
 $('dl').onclick = () => {
   const a = h('a', { href: URL.createObjectURL(new Blob([text() + '\n'], { type: 'application/json' })), download: ((song.title || 'song').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'song') + '.json' });
@@ -718,12 +819,12 @@ $('dl').onclick = () => {
 $('open').onclick = () => $('file').click();
 $('file').onchange = async () => {
   const f = $('file').files[0]; if (!f) return;
-  try { setSong(JSON.parse(await f.text())); $('song').value = ''; } catch (e) { setJsonState(false, 'could not read ' + f.name + ': ' + e.message); }
+  try { setSong(JSON.parse(await f.text()), 'Open ' + f.name); $('song').value = ''; } catch (e) { setJsonState(false, 'could not read ' + f.name + ': ' + e.message); }
   $('file').value = '';
 };
 
 function buildAll() { buildSong(); buildSections(); }
-function setSong(v) { song = v; $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true }); }
+function setSong(v, label = 'Load song', quiet = false) { song = v; $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true, label, toast: label, quiet }); }
 
 
 // ---- Lyrics tab: plain words in, song sections out ----
@@ -884,31 +985,125 @@ function lyricPreview() {
     }
   }, 120);
 }
-function applyLyrics() {
-  const src = $('lyr').value;
-  const keep = $('lyrchords').value === 'keep';
-  const old = (song.sections || []).filter((s) => s.lines).flatMap((s) => s.lines.map((l) => l.chords));
-  let secs = lyricsToSections(src, !keep, Number($('lyrbars').value));
-  if (!secs.some((s) => s.lines)) { $('err').textContent = ''; $('lyrinfo').textContent = 'Write at least one line first.'; return false; }
-  if (keep) { let i = 0; for (const s of secs) for (const l of s.lines || []) l.chords = (old[i++] || []).slice(); }
-  if (keep && !secs.some((s) => (s.lines || []).some((l) => l.chords.length)) && !secs.some((s) => s.chords)) {
-    secs = lyricsToSections(src, true, Number($('lyrbars').value));
-  }
-  song.sections = secs; $('song').value = '';
-  if (song.schema_version == null) song.schema_version = 3;
-  $('json').value = text(); setJsonState(true); buildAll(); changed({ fromJson: true });
-  return true;
+// Merge: the lyrics box is the source for the words; everything else the song already has is kept.
+const normSyl = (x) => (x || '').toLowerCase().replace(/~\d?/g, '').replace(/[*\-]/g, '').replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
+const clone = (x) => structuredClone(x);
+function mergeLyrics(oldSecs, newSecs) {
+  const lose = [], note = [];
+  const ord = (list, i) => { const t = list[i].type; return `${t} ${list.slice(0, i + 1).filter((x) => x.type === t).length}`; };
+  const oldBy = {}; oldSecs.forEach((x, i) => (oldBy[x.type] ||= []).push(i));
+  const seen = {}, entries = []; let changedLines = 0, addedLines = 0, droppedPh = 0, keptSame = 0;
+  newSecs.forEach((ns) => {
+    const k = seen[ns.type] = (seen[ns.type] ?? -1) + 1;
+    const oi = (oldBy[ns.type] || [])[k], os = oi != null ? oldSecs[oi] : null;
+    const label = os ? ord(oldSecs, oi) : `${ns.type} ${k + 1}`;
+    const carry = (o) => { const c = {}; for (const f of ['energy', 'rubato', 'key']) if (o && o[f] != null) c[f] = o[f]; return c; };
+    const placeholder = ns.lines && ns.lines.length === 1 && !ns.lines[0].syl;
+    let sec;
+    if (ns.same) {
+      if (os && os.same) { sec = clone(os); keptSame++; }
+      else { sec = { ...ns, ...carry(os) }; if (os && os.lines && os.lines.length) lose.push(`${os.lines.length} line${os.lines.length === 1 ? '' : 's'} of ${label}, which becomes a repeat of an earlier ${ns.type}`); }
+    } else if (placeholder) {
+      sec = os ? clone(os) : ns;
+    } else if (ns.lines) {
+      if (os && os.lines) {
+        sec = clone(os); sec.lines = [];
+        // Align by words (longest common subsequence), so a line added or removed in the middle
+        // does not shift every later line onto the wrong chords and tune.
+        const N = ns.lines.length, M = os.lines.length;
+        const eq = (i, j) => normSyl(ns.lines[i].syl) === normSyl(os.lines[j].syl);
+        const dp = Array.from({ length: N + 1 }, () => new Array(M + 1).fill(0));
+        for (let i = N - 1; i >= 0; i--) for (let j = M - 1; j >= 0; j--) dp[i][j] = eq(i, j) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        const anchors = []; // [newIdx, oldIdx] of lines whose words did not change
+        for (let i = 0, j = 0; i < N && j < M;) { if (eq(i, j)) { anchors.push([i, j]); i++; j++; } else if (dp[i + 1][j] >= dp[i][j + 1]) i++; else j++; }
+        anchors.push([N, M]);
+        let pi = 0, pj = 0, droppedOld = 0;
+        for (const [ai, aj] of anchors) {
+          const gn = ai - pi, go = aj - pj, both = Math.min(gn, go);
+          for (let k = 0; k < gn; k++) {
+            const nl = ns.lines[pi + k], ol = k < both ? os.lines[pj + k] : null;
+            if (!ol) { sec.lines.push(nl); addedLines++; continue; }
+            const m = { ...clone(ol), syl: nl.syl }; changedLines++;
+            if (m.ph) { delete m.ph; droppedPh++; }
+            if (m.tune && tuneNotes(m.tune) !== countNotes(nl.syl)) note.push(`${label} line ${pi + k + 1}: its tune has ${tuneNotes(m.tune)} notes but the words now have ${countNotes(nl.syl)}; the engine ignores a tune of the wrong length`);
+            sec.lines.push(m);
+          }
+          droppedOld += Math.max(0, go - both);
+          if (ai < N) sec.lines.push(clone(os.lines[aj]));
+          pi = ai + 1; pj = aj + 1;
+        }
+        if (droppedOld) lose.push(`${droppedOld} line${droppedOld === 1 ? '' : 's'} of ${label}`);
+      } else { sec = { ...ns, ...carry(os) }; addedLines += ns.lines.length; }
+    } else { // instrumental header
+      sec = os && !os.lines ? clone(os) : ns;
+    }
+    if (oi != null) entries.push({ sec, oi }); else entries.push({ sec, oi: -1 });
+  });
+  const usedOld = new Set(entries.map((e) => e.oi));
+  const keptInstr = [];
+  oldSecs.forEach((os, oi) => {
+    if (usedOld.has(oi)) return;
+    if (INSTRUMENTAL.includes(os.type) && !os.lines) {
+      let pos = 0;
+      for (let j = oi - 1; j >= 0; j--) { const p = entries.findIndex((e) => e.oi === j); if (p >= 0) { pos = p + 1; break; } }
+      entries.splice(pos, 0, { sec: clone(os), oi }); keptInstr.push(ord(oldSecs, oi));
+    } else {
+      const n = (os.lines || []).length;
+      lose.push(os.same ? `${ord(oldSecs, oi)} (a repeat)` : `${ord(oldSecs, oi)}, with ${n} line${n === 1 ? '' : 's'}`);
+    }
+  });
+  if (droppedPh) lose.push(`hand-written phonemes on ${droppedPh} reworded line${droppedPh === 1 ? '' : 's'} (the engine will spell them)`);
+  const info = [];
+  if (changedLines) info.push(`${changedLines} line${changedLines === 1 ? '' : 's'} reworded; their chords, tunes and singer settings stay`);
+  if (addedLines) info.push(`${addedLines} line${addedLines === 1 ? '' : 's'} added`);
+  if (keptInstr.length) info.push(`kept ${keptInstr.join(', ')} (not in the lyrics box)`);
+  return { sections: entries.map((e) => e.sec), lose, note, info };
 }
-$('lyrbars').onchange = lyricPreview; $('lyrchords').onchange = lyricPreview;
-$('lyr').addEventListener('input', () => { lyricInfo(); try { localStorage.setItem('sunflower.lyrics', $('lyr').value); } catch (e) { /* ignore */ } });
-$('lyrapply').onclick = () => { if (applyLyrics()) { showTab('arrangement'); } };
-$('sing').onclick = () => {
-  if (!applyLyrics()) return;
-  if (ready && jsonOk) { $('go').click(); $('stage').scrollIntoView({ block: 'nearest' }); }
-};
+let pending = null;
+function hideReview() { pending = null; $('review').hidden = true; }
+function planLyrics() {
+  const src = $('lyr').value;
+  const fresh = lyricsToSections(src, $('lyrchords').value !== 'keep', Number($('lyrbars').value));
+  if (!fresh.some((x) => x.lines && x.lines.some((l) => l.syl))) { $('lyrinfo').textContent = 'Write at least one line first.'; return null; }
+  const plan = mergeLyrics(song.sections || [], fresh);
+  plan.same = JSON.stringify(plan.sections) === JSON.stringify(song.sections || []);
+  return plan;
+}
+function commitLyrics(plan) {
+  hideReview();
+  if (plan.same) { toast('The song already has these lyrics.'); return; }
+  song.sections = plan.sections; $('song').value = '';
+  if (song.schema_version == null) song.schema_version = 3;
+  $('json').value = text(); setJsonState(true); buildAll();
+  const bits = plan.info.length ? plan.info.join('; ') : 'sections updated';
+  changed({ fromJson: true, label: 'Put lyrics in the song', toast: 'Lyrics are in the song: ' + bits + '.' });
+}
+// Apply the lyrics, asking first if anything would be lost. `then` runs once they are in.
+function applyLyrics(then) {
+  const plan = planLyrics();
+  if (!plan) return;
+  if (plan.lose.length && !plan.same) {
+    pending = { plan, then };
+    const ul = $('reviewlist'); ul.textContent = '';
+    for (const m of plan.lose) ul.append(h('li', { class: 'lose', text: 'Lost: ' + m }));
+    for (const m of [...plan.info, ...plan.note]) ul.append(h('li', { class: 'note', text: m }));
+    $('review').hidden = false; $('review').scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  commitLyrics(plan);
+  for (const m of plan.note) toast(m);
+  if (then) then();
+}
+$('reviewgo').onclick = () => { const p = pending; if (!p) return; commitLyrics(p.plan); if (p.then) p.then(); };
+$('reviewno').onclick = hideReview;
+$('lyrbars').onchange = () => { hideReview(); lyricPreview(); }; $('lyrchords').onchange = () => { hideReview(); lyricPreview(); };
+$('lyr').addEventListener('input', () => { lyricInfo(); hideReview(); try { localStorage.setItem('sunflower.lyrics', $('lyr').value); } catch (e) { /* ignore */ } record('Edit lyrics', { key: $('lyr') }); });
+$('lyrapply').onclick = () => applyLyrics(() => showTab('arrangement'));
+$('sing').onclick = () => applyLyrics(() => { if (ready && jsonOk) { $('go').click(); $('stage').scrollIntoView({ block: 'nearest' }); } });
 $('lyrfrom').onclick = () => {
-  if ($('lyr').value.trim() && !confirm('Replace the text here with the lyrics of the song?')) return;
   $('lyr').value = sectionsToLyrics(); lyricInfo();
+  try { localStorage.setItem('sunflower.lyrics', $('lyr').value); } catch (e) { /* ignore */ }
+  record('Read lyrics from the song', { toast: true });
 };
 
 // ---- Engine worker ----
@@ -1011,20 +1206,18 @@ function fail(msg, fatal) {
   if (fatal) { worker.terminate(); spawn(); } else $('go').disabled = !ready || !jsonOk;
 }
 
-async function loadSong(k) {
-  try { setSong(await (await fetch(`./songs/${k}.json`)).json()); }
+async function loadSong(k, quiet) {
+  try { const j = await (await fetch(`./songs/${k}.json`)).json(); setSong(j, 'Load ' + (j.title || k), quiet); }
   catch (e) { fail('could not load song ' + k); }
 }
 const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '(your edits)'; $('song').append(o0);
 for (const [k, name] of SONGS) { const o = document.createElement('option'); o.value = k; o.textContent = name; $('song').append(o); }
 $('song').onchange = () => {
   if (!$('song').value) return;
-  if (!confirm('Replace the song in the editor? Unsaved edits are lost (download the JSON first to keep them).')) { $('song').value = ''; return; }
   loadSong($('song').value);
 };
 $('newsong').onclick = () => {
-  if (!confirm('Start a new song? Unsaved edits are lost.')) return;
-  $('song').value = ''; setSong(blankSong());
+  $('song').value = ''; setSong(blankSong(), 'New song');
 };
 const wide = matchMedia('(min-width: 64rem)');
 const syncPlayer = () => { if (wide.matches) $('player').open = true; };
@@ -1034,13 +1227,13 @@ $('seed').oninput = probe; $('voice').onchange = probe;
 if (typeof WebAssembly !== 'object') fail('this browser has no WebAssembly');
 else {
   spawn();
-  let draft = null;
-  try { draft = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (e) { draft = null; }
-  if (draft && typeof draft === 'object' && Array.isArray(draft.sections)) setSong(draft);
-  else { $('song').value = SONGS[0][0]; loadSong(SONGS[0][0]); }
   let saved = '';
   try { saved = localStorage.getItem('sunflower.lyrics') || ''; } catch (e) { /* ignore */ }
   $('lyr').value = saved; lyricInfo();
+  let draft = null;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (e) { draft = null; }
+  if (draft && typeof draft === 'object' && Array.isArray(draft.sections)) setSong(draft, 'Start from your last edit', true);
+  else { $('song').value = SONGS[0][0]; loadSong(SONGS[0][0], true); }
   let tab = 'lyrics';
   try { tab = sessionStorage.getItem('sunflower.tab') || 'song'; } catch (e) { /* ignore */ }
   showTab(TABS.includes(tab) ? tab : 'lyrics');
