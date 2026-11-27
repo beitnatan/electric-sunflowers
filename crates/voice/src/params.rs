@@ -96,8 +96,8 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
         },
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
-            // b1_scale fitted to vocadito female per-f0-bin open H1-H2 (engine-design 5.1); capped source (fa_hz), rd, shelf_db and hf_bed swept against the word-list warmth and timbre scores (docs/voice-wordlist.md)
-            rd: 2.4,
+            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1)
+            rd: 1.6,
             fs: 1.16,
             f1s: 1.08,
             breath: 0.16,
@@ -107,16 +107,16 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             jitter: 0.003,
             shimmer: 0.04,
             sf: 0.2,
-            fa_hz: 4000.0,
-            shelf_db: 20.0,
-            hf_bed: 0.25,
+            fa_hz: 0.0,
+            shelf_db: 16.0,
+            hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
-            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1); hf_bed, jitter and shimmer swept against the word-list scores (docs/voice-wordlist.md)
+            // rd and b1_scale fitted to VocalSet female long tones and to vocadito female per-f0-bin open H1-H2 (engine-design 5.1)
             rd: 1.6,
             fs: 1.22,
             f1s: 1.12,
@@ -124,12 +124,12 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
             vib_rate: 5.8,
             vib_depth: 0.42,
             tilt: 5600.0,
-            jitter: 0.005,
-            shimmer: 0.06,
+            jitter: 0.0025,
+            shimmer: 0.03,
             sf: 0.25,
             fa_hz: 0.0,
             shelf_db: 16.0,
-            hf_bed: 0.3,
+            hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
