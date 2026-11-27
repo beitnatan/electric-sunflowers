@@ -102,23 +102,24 @@ pub const fn voice_params(voice: Voice) -> VoiceParams {
         Voice::Alto => VoiceParams {
             cons_scale: 1.35,
             // b1_scale fitted to vocadito female per-f0-bin open H1-H2 (engine-design 5.1); capped source (fa_hz 4000) with rd 2.4 keeps open H1-H2 and the vowel distance and raises SingMOS-Pro 3.32 to 3.54 (docs/voice-wordlist.md)
+            // sf 0, f1s 1.10, shelf 17.5 dB and high_bw 0.05 lift the word-list timbre 40 to 48 with per-bin open H1-H2 held (docs/voice-wordlist.md)
             rd: 2.4,
             fs: 1.16,
-            f1s: 1.08,
+            f1s: 1.10,
             breath: 0.16,
             vib_rate: 5.3,
             vib_depth: 0.32,
             tilt: 4300.0,
             jitter: 0.003,
             shimmer: 0.04,
-            sf: 0.2,
+            sf: 0.0,
             fa_hz: 4000.0,
-            shelf_db: 16.0,
+            shelf_db: 17.5,
             hf_bed: 0.0,
             hf_hz: 3800.0,
             cons_gain: 1.0,
             b1_scale: 2.0,
-            high_bw: 1.0,
+            high_bw: 0.05,
         },
         Voice::Soprano => VoiceParams {
             cons_scale: 1.4,
