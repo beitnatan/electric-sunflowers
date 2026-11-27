@@ -146,3 +146,27 @@ soprano    69/34->71/36  3.09->3.33 7.22->7.27 2.79->2.82 10.69->10.73 2/4->2/4 
 ```
 
 Alto warmth +18 (timbre unchanged), SingMOS +0.23, PQ +0.22, per-bin open H1-H2 within 0.3 dB. Soprano changes only through the /iy/ modification. Not done: Whisper word error, listening by ear (the alto's brighter source and the soprano's /iy/ at 550-750 Hz need it).
+
+### Tenor and baritone source sweep (one parameter at a time, from the baseline)
+
+Screen: word-list warmth/timbre and vow (limit 0.3 dB). Gate on the demo lead: SingMOS (no fall over 0.05), PQ (no fall over 0.1), per-bin open H1-H2 (within 0.5 dB). Baselines: tenor 74/50, vow 13.04, SingMOS 2.91, PQ 6.99; baritone 83/60, vow 12.94, SingMOS 3.21, PQ 7.22.
+
+```
+voice     setting            warm tim   vow    SingMOS   PQ    verdict
+tenor     shelf_db 16/20     75/74 50/49 13.05/13.07 -    -    no gain
+tenor     fa_hz 600          68   55   13.01    -         -    warmth -6
+tenor     fa_hz 1500/2500    73/67 47/43 13.06/13.07 -    -    worse
+tenor     rd 1.6/2.2         74/73 50/50 12.89/13.21 -    -    no gain
+tenor     hf_bed 0.2/0.45    64/78 49/32 13.11/12.96 -    -    worse
+tenor     hf_hz 3000/5000    74/72 36/49 12.78/13.15 -    -    worse
+tenor     shimmer 0.05       74   52   13.03    -         -    no gain
+tenor     breath 0.04/0.12   73/75 47/56 13.09/12.96 -    -    timbre +6 at most
+tenor     breath 0.17        76   61   12.90    2.82      6.92 SingMOS -0.09
+tenor     breath 0.22        76   65   12.84    2.82      6.88 SingMOS -0.09, PQ -0.11
+baritone  shelf_db 20        85   60   12.96    -         -    no gain
+baritone  fa_hz 1000         77   63   12.92    -         -    warmth -6
+baritone  breath 0.16        84   65   12.86    -         -    timbre +5 only
+baritone  breath 0.22        86   69   12.78    3.11      7.21 SingMOS -0.10
+```
+
+Open-vowel H1-H2 against the target held in every demo row (E - T -0.70 and -0.68 dB tenor, -0.40 and -0.43 dB baritone). Only breath moves timbre; it adds noise, and SingMOS falls by 0.09 to 0.10 at the settings that reach +8 (tenor 0.17, baritone 0.22; tenor 0.12 and baritone 0.16 stop at +6 and +5). Phoneme hits fall with it (tenor /l/ 8/14 to 5-6/14). No setting raises warmth or timbre by 8 points with all gates held; tenor and baritone stay as they are.
