@@ -54,6 +54,14 @@ HILL = {
           "aa": (936, 1551), "ao": (781, 1136), "uh": (519, 1225), "uw": (459, 1105),
           "ah": (753, 1426), "er": (523, 1588), "ey": (536, 2530), "ow": (555, 1035)},
 }
+# Measured sung male vowels (tools/vowel_targets.py: VocalSet male long tones,
+# five vowels, f0 about 263 Hz). Used for men where present; HILL is the
+# fallback for the other vowels and for women.
+try:
+    MEAS = {k: tuple(v["median"][:2]) for k, v in
+            json.load(open(os.path.join(HERE, "targets", "vowels_male.json")))["vowels"].items()}
+except OSError:
+    MEAS = {}
 HVD = {"heed": "iy", "hid": "ih", "head": "eh", "had": "ae", "hod": "aa",
        "hawed": "ao", "hood": "uh", "who'd": "uw", "hud": "ah", "heard": "er",
        "hayed": "ey", "hoed": "ow"}
@@ -206,7 +214,12 @@ def measure(d, items, tgt, sex):
             w["hnr"], w["flat"] = hn, fl
             if forms and it["word"] in HVD:
                 F = np.median(np.array(forms), 0)
-                T = HILL[sex][HVD[it["word"]]]
+                v = HVD[it["word"]]
+                T = HILL[sex][v]
+                w["formant_hill"] = float(np.hypot((F[0] - T[0]) / T[0], (F[1] - T[1]) / T[1]))
+                if sex == "m" and v in MEAS and not os.environ.get("WARMTH_HILL"):
+                    T = MEAS[v]
+                    w["formant_meas"] = float(np.hypot((F[0] - T[0]) / T[0], (F[1] - T[1]) / T[1]))
                 w["formant"] = float(np.hypot((F[0] - T[0]) / T[0], (F[1] - T[1]) / T[1]))
                 w["F"] = (float(F[0]), float(F[1]))
         words.append(w)
@@ -248,6 +261,12 @@ def report(d, items, worst):
     fm = [w["formant"] for w in words if "formant" in w]
     row["J"] = j_of(vhf, tgt)
     row["formant"] = float(np.mean(fm)) if fm else float("nan")
+    fh = [w["formant_hill"] for w in words if "formant_hill" in w]
+    row["formant_hill"] = float(np.mean(fh)) if fh else float("nan")
+    # the five measured vowels only, both tables
+    ms = [w for w in words if "formant_meas" in w]
+    row["formant_5m"] = float(np.mean([w["formant_meas"] for w in ms])) if ms else float("nan")
+    row["formant_5h"] = float(np.mean([w["formant_hill"] for w in ms])) if ms else float("nan")
     row["hnr"] = float(np.median(hnr))
     row["flat"] = float(np.median(flat))
     comp = {
@@ -314,6 +333,10 @@ def main(argv):
         print("-- %s: components " % r["voice"] + " ".join("%s %.0f" % kv for kv in r["comp"].items()))
         print("   worst words (warmth, timbre, mean): " + "; ".join(
             "%s %.0f/%.0f/%.0f" % (w[0], w[2], w[3], w[4]) for w in r["words"][:worst]))
+    for r in res:
+        rw = r["row"]
+        print("formD %s: all 12 hVd, measured where present %.3f, Hillenbrand %.3f | the 5 measured vowels: measured %.3f, Hillenbrand %.3f" % (
+            r["voice"], rw["formant"], rw["formant_hill"], rw["formant_5m"], rw["formant_5h"]))
     print("SCORES " + " ".join("%s warmth %.0f timbre %.0f |" % (r["voice"], r["warm"], r["timb"]) for r in res))
     if out:
         json.dump(res, open(out, "w"), indent=1, default=float)

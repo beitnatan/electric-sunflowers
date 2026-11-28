@@ -173,3 +173,11 @@ vmod_lo 200       0 -21 -31 -36 -37 -34 -20 -22 -16 -26 -29 -28 -36 -39 -52    -
 ```
 
 At 225 no partial H3-H14 is over 8 dB above both neighbours at the 90th percentile of frames (y3: H8 and H10 at 10 to 12). Word list, alto /iy/ and /ih/ at 300-400 Hz (25 notes): H8 re mean(H7,H9) -0.8 (y3) and +0.7; p90 isolation H7 8 (y3) and 10. Cost: demo SingMOS 3.49 (vmod_lo 300), 3.45 (250), 3.44 (225), 3.43 (200); against the voice-tune2 baseline 3.55 the chosen setting is -0.11 (y3 alone -0.06). Other gates at 225: demo PQ 7.06 (baseline 7.00), word-list SingMOS 2.64 (2.70), word-list PQ 7.28, vow 13.14 (13.07), word-list timbre 48 warmth 55, per-bin open H1-H2 -0.25 +0.65 -0.38 (baseline +0.12 +0.27 -0.20, all within 0.5 dB), phoneme hits f 2/4, r 12/30, l 7/14, iy 17/17, ey 6/15, ih 4/15 (baseline 2/4, 12/30, 8/14, 17/17, 5/15, 4/15). Not heard. Gate baseline not re-captured; the engine solo demo checksum is re-pinned.
+
+## Measured male vowel targets (vowel-targets branch)
+
+`tools/vowel_targets.py` measures F1-F3 of VocalSet male long tones (11 singers, a e i o u, straight and forte, 40 ms LPC order 12, f0 <= 300 Hz; `tools/targets/vowels_male.json`). Every singer sings the long tones near C4 (263 Hz), so there are no f0 bins, and F1 of closed vowels sits near 2 f0. `warmth.py` scores men against these (five vowels) and against Hillenbrand for the rest; `WARMTH_HILL=1` restores the old formD.
+
+Measured (Hz, F1/F2) against the engine table at baritone scale: aa 670/1048 (730/1090), eh 555/1529 (530/1840), iy 360/1807 (270/2290), ow 540/1041 (oh 480/860), uw 511/1036 (310/870). The LPC on the engine's own word list returns its table (iy 270/2389 for the tenor at C4), so the gap is in the singers: sung vowels at C4 are centred and F1 rises toward the harmonics.
+
+Sweep (20 renders at most; per-vowel multipliers on F1 and F2, male voices only, not committed): moving one group to its measured value lifts word-list timbre by 1 to 5, and all five groups by half by 7 to 9 (baritone 56 -> 65, tenor 45 -> 52), but the vowel distance falls 0.3 to 1.3 dB (baritone 12.94 -> 11.65). Only the eh and aa groups keep it within 0.3 dB, for +2 to +3. No set met the rule (gain >= 5, vowel distance within 0.3 dB), so the engine table stays.
